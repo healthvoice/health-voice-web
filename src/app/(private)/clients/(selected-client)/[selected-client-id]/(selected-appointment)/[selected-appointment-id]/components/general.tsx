@@ -10,9 +10,9 @@ export function General() {
 
   return (
     <div className="prose prose-sm prose-h1:text-center prose-h1:text-primary prose-h2:text-primary w-full max-w-none">
-      {selectedRecording?.transcription ? (
+      {selectedRecording?.summary ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {selectedRecording?.transcription}
+          {selectedRecording?.summary}
         </ReactMarkdown>
       ) : (
         <>

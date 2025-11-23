@@ -1,5 +1,6 @@
 "use client";
 import { AuthGuard } from "@/components/auth-guard";
+import MobileAppBlocker from "@/components/mobile";
 import { Header } from "@/components/ui/header";
 import { Sidebar } from "@/components/ui/sidebar";
 import { GeneralContextProvider } from "@/context/GeneralContext";
@@ -39,6 +40,7 @@ export default function RootLayout({
   return (
     <AuthGuard>
       <GeneralContextProvider>
+        <MobileAppBlocker />
         <div
           className={cn(
             "relative flex w-full flex-col pb-20",
