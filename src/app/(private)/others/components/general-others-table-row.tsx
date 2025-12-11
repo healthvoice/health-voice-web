@@ -14,10 +14,17 @@ export function GeneralOthersTableItem({ recording }: Props) {
   const { setSelectedRecording } = useGeneralContext();
   const router = useRouter();
 
+  const handleNavigation = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedRecording(recording);
+    router.push(`/others/${recording.id}`);
+  };
+
   return (
     <TableRow
+      onClick={handleNavigation}
       key={recording.id}
-      className="hover:bg-primary/20 h-14 cursor-pointer py-8 text-center transition duration-300"
+      className="hover:bg-primary/5 h-14 cursor-pointer py-8 text-center transition duration-300"
     >
       <TableCell className="py-0.5 text-start text-sm font-medium whitespace-nowrap">
         {recording.name || "N/A"}
@@ -31,14 +38,11 @@ export function GeneralOthersTableItem({ recording }: Props) {
       <TableCell className="py-2 text-xs font-medium whitespace-nowrap text-zinc-400">
         <div className="flex items-center justify-end">
           <button
-            onClick={() => {
-              setSelectedRecording(recording);
-              router.push(`/others/${recording.id}`);
-            }}
-            className="bg-primary group flex items-center gap-2 rounded-3xl px-2 py-1 text-sm text-white transition ease-in-out hover:shadow-md"
+            onClick={handleNavigation}
+            className="group flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary transition-all duration-300 hover:bg-primary hover:text-white hover:shadow-md"
           >
             <span>Acessar</span>
-            <ChevronRight className="h-4 transition ease-in-out group-hover:translate-x-1" />
+            <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
           </button>
         </div>
       </TableCell>
