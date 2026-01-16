@@ -2,10 +2,10 @@
 "use client";
 
 import { useSession } from "@/context/auth";
+import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -161,7 +161,7 @@ function LoadingScreen({ fallback }: { fallback?: React.ReactNode }) {
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="relative flex h-32 w-32 items-center justify-center rounded-3xl bg-white/40 shadow-2xl backdrop-blur-md ring-1 ring-white/60 sm:h-40 sm:w-40"
+            className="relative flex h-32 w-32 items-center justify-center rounded-lg bg-white/40 shadow-2xl ring-1 ring-white/60 backdrop-blur-md sm:h-40 sm:w-40"
           >
             <Image
               src="/logos/icon.png"

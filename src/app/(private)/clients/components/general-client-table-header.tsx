@@ -3,7 +3,11 @@ import debounce from "lodash.debounce";
 import { Search } from "lucide-react";
 import { useCallback, useState } from "react";
 
-export function GeneralClientsTableHeader() {
+interface Props {
+  onOpenNewClient: () => void;
+}
+
+export function GeneralClientsTableHeader({ onOpenNewClient }: Props) {
   const { setClientsFilters } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
 
@@ -27,22 +31,19 @@ export function GeneralClientsTableHeader() {
   };
 
   return (
-    <div className="flex w-full items-center justify-between gap-2">
-      <label
-        htmlFor="search"
-        className="group relative h-8 w-80 rounded-3xl border border-neutral-300 transition focus-within:border-neutral-500"
-      >
-        <Search className="absolute top-1/2 left-2 h-4 -translate-y-1/2 text-neutral-300 transition group-focus-within:text-neutral-500" />
-        <input
-          type="text"
-          name="search"
-          id="search"
-          placeholder="Buscar..."
-          value={localQuery}
-          onChange={handleChange}
-          className="peer h-full w-full rounded-3xl px-8 text-neutral-700 outline-none placeholder:text-neutral-300"
-        />
-      </label>
+    <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1">
+        <div className="relative h-10 w-full sm:w-80">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar paciente..."
+            value={localQuery}
+            onChange={handleChange}
+            className="h-full w-full rounded-lg bg-transparent px-9 text-sm text-gray-700 outline-none placeholder:text-gray-400"
+          />
+        </div>
+      </div>
     </div>
   );
 }

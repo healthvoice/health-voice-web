@@ -97,7 +97,7 @@ const SignIn = ({ onClick }: SignInProps) => {
     setIsLoggingIn(true);
     try {
       const { email, password } = data;
-
+      console.log("entrando com email:",email, "e senha",password)
       const { isSignedIn } = await signIn({
         username: email.trim(),
         password: password.trim(),
@@ -105,10 +105,10 @@ const SignIn = ({ onClick }: SignInProps) => {
           authFlowType: "USER_PASSWORD_AUTH",
         },
       });
-
+      console.log("resposta do email ",isSignedIn)
       if (isSignedIn) {
         const tokensReady = await waitForTokens();
-
+        console.log("token ready?", )
         if (!tokensReady) {
           toast.error("Erro ao carregar sessão. Tente novamente.");
           return;

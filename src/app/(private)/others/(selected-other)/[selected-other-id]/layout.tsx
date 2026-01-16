@@ -10,11 +10,11 @@ export default function ChatLayout({
   children: React.ReactNode;
 }) {
   const { selectedRecording } = useGeneralContext();
-  const router = useRouter();
+  const useRouterHook = useRouter();
 
   useEffect(() => {
     if (!selectedRecording) {
-      router.push("/others");
+      useRouterHook.push("/others");
     }
   }, [selectedRecording]);
 

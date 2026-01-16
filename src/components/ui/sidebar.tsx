@@ -50,7 +50,7 @@ export function Sidebar() {
                   "_blank",
                 )
               }
-              className="border-light text-light flex h-10 items-center gap-2 rounded-3xl border px-4 font-semibold text-white"
+              className="border-light text-light flex h-10 items-center gap-2 rounded-lg border px-4 font-semibold text-white"
             >
               <Image
                 src="/icons/google-login.png"
@@ -68,7 +68,7 @@ export function Sidebar() {
                   "_blank",
                 )
               }
-              className="text-light flex h-10 items-center gap-2 rounded-3xl border border-white px-4 font-semibold text-white"
+              className="text-light flex h-10 items-center gap-2 rounded-lg border border-white px-4 font-semibold text-white"
             >
               <Image
                 src="/icons/apple-login.png"

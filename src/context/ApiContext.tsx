@@ -67,52 +67,59 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
     const connect = await api
       .post(url, data, await header(auth))
       .then(({ data }) => ({ status: 200, body: data }))
-      .catch((err) => ({
-        status: err.response?.status || 500,
-        body: err.response?.data || "Erro desconhecido",
-      }));
-    return connect.status === 500
-      ? { status: 500, body: "Ops! algo deu errado, tente novamente" }
-      : connect;
+      .catch((err) => {
+        console.error(`❌ API Error [POST] ${url}`, err.response?.data || err);
+        return {
+          status: err.response?.status || 500,
+          body: err.response?.data || "Erro desconhecido",
+        };
+      });
+    return connect;
   }
 
   async function GetAPI(url: string, auth: boolean) {
     const connect = await api
       .get(url, await header(auth))
       .then(({ data }) => ({ status: 200, body: data }))
-      .catch((err) => ({
-        status: err.response?.status || 500,
-        body: err.response?.data || "Erro desconhecido",
-      }));
-    return connect.status === 500
-      ? { status: 500, body: "Ops! algo deu errado, tente novamente" }
-      : connect;
+      .catch((err) => {
+        console.error(`❌ API Error [GET] ${url}`, err.response?.data || err);
+        return {
+          status: err.response?.status || 500,
+          body: err.response?.data || "Erro desconhecido",
+        };
+      });
+    return connect;
   }
 
   async function PutAPI(url: string, data: unknown, auth: boolean) {
     const connect = await api
       .put(url, data, await header(auth))
       .then(({ data }) => ({ status: 200, body: data }))
-      .catch((err) => ({
-        status: err.response?.status || 500,
-        body: err.response?.data || "Erro desconhecido",
-      }));
-    return connect.status === 500
-      ? { status: 500, body: "Ops! algo deu errado, tente novamente" }
-      : connect;
+      .catch((err) => {
+        console.error(`❌ API Error [PUT] ${url}`, err.response?.data || err);
+        return {
+          status: err.response?.status || 500,
+          body: err.response?.data || "Erro desconhecido",
+        };
+      });
+    return connect;
   }
 
   async function DeleteAPI(url: string, auth: boolean) {
     const connect = await api
       .delete(url, await header(auth))
       .then(({ data }) => ({ status: 200, body: data }))
-      .catch((err) => ({
-        status: err.response?.status || 500,
-        body: err.response?.data || "Erro desconhecido",
-      }));
-    return connect.status === 500
-      ? { status: 500, body: "Ops! algo deu errado, tente novamente" }
-      : connect;
+      .catch((err) => {
+        console.error(
+          `❌ API Error [DELETE] ${url}`,
+          err.response?.data || err,
+        );
+        return {
+          status: err.response?.status || 500,
+          body: err.response?.data || "Erro desconhecido",
+        };
+      });
+    return connect;
   }
 
   return (

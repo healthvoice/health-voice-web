@@ -235,16 +235,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
           invalidateSessionCache();
         }
 
-        // Verifica sessão
         const hasSession = await checkSession(forceRefresh);
+        console.log("hasSession?", hasSession)
 
         if (!hasSession) {
           setProfile(null);
           return;
         }
-
+        console.log("buscando usuario ")
         const response = await GetAPI("/user", true);
-
+        console.log("🚀 ~ handleGetProfile ~ response:", response);
         if (response.status === 200) {
           setProfile(response.body.profile);
         } else if (response.status === 401 && retryCount < 1) {

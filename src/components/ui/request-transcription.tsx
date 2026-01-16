@@ -43,7 +43,7 @@ export function RequestTranscription() {
         selectedRecording?.transcriptionStatus === "PENDING" || isRequesting
       }
       className={cn(
-        "bg-primary absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 rounded-3xl px-4 py-2 font-semibold text-white",
+        "bg-primary absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold text-white",
         selectedRecording?.transcriptionStatus === "PENDING" &&
           "cursor-wait bg-green-400 opacity-50",
         selectedRecording?.transcriptionStatus === "DONE" && "hidden",

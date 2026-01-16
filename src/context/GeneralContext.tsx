@@ -45,6 +45,15 @@ interface GeneralContextProps {
   GetClients: () => Promise<void>;
   selectedClient: ClientProps | null;
   setSelectedClient: React.Dispatch<React.SetStateAction<ClientProps | null>>;
+  newRecordingRequest: {
+    type: "CLIENT" | "PERSONAL";
+    subType?: "REMINDER" | "STUDY" | "OTHER";
+  } | null;
+  openNewRecording: (
+    type: "CLIENT" | "PERSONAL",
+    subType?: "REMINDER" | "STUDY" | "OTHER",
+  ) => void;
+  resetNewRecordingRequest: () => void;
 }
 
 const GeneralContext = createContext<GeneralContextProps | undefined>(
@@ -91,6 +100,23 @@ export const GeneralContextProvider = ({ children }: ProviderProps) => {
   const [selectedClient, setSelectedClient] = useState<ClientProps | null>(
     null,
   );
+
+  // --- Estado para Trigger Global de Nova Gravação ---
+  const [newRecordingRequest, setNewRecordingRequest] = useState<{
+    type: "CLIENT" | "PERSONAL";
+    subType?: "REMINDER" | "STUDY" | "OTHER";
+  } | null>(null);
+
+  const openNewRecording = useCallback(
+    (type: "CLIENT" | "PERSONAL", subType?: "REMINDER" | "STUDY" | "OTHER") => {
+      setNewRecordingRequest({ type, subType });
+    },
+    [],
+  );
+
+  const resetNewRecordingRequest = useCallback(() => {
+    setNewRecordingRequest(null);
+  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buildQueryString = (params: Record<string, any>): string => {
@@ -207,6 +233,10 @@ export const GeneralContextProvider = ({ children }: ProviderProps) => {
         GetClients,
         selectedClient,
         setSelectedClient,
+        // Trigger de Nova Gravação
+        newRecordingRequest,
+        openNewRecording,
+        resetNewRecordingRequest,
       }}
     >
       {children}

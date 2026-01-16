@@ -11,7 +11,6 @@ import { useGeneralContext } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
 import { ChevronRight } from "lucide-react";
 import moment from "moment";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -35,33 +34,40 @@ export function GeneralClientTableItem({ client }: Props) {
     });
     router.push(`/clients/${client.id}`);
   };
+  console.log(client);
 
   return (
     <TableRow
       onClick={handleNavigation}
       key={client.id}
-      className="hover:bg-primary/5 h-14 cursor-pointer py-8 text-center transition duration-300"
+      className="group h-20 cursor-pointer border-b border-gray-50 transition-all duration-200 hover:bg-sky-50/30"
     >
-      <TableCell className="py-0.5 text-start text-sm font-medium whitespace-nowrap">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary flex h-10 w-10 max-w-10 min-w-10 items-center justify-center rounded-full">
-            <Image
-              src="/icons/user.png"
-              alt=""
-              width={100}
-              height={100}
-              className="h-4 w-max object-contain"
-            />
+      <TableCell className="py-4 pl-4 text-start">
+        <div className="flex items-center gap-4">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-blue-500/20 transition-transform group-hover:scale-105">
+            <span className="text-sm font-bold">
+              {client.name?.slice(0, 2).toUpperCase()}
+            </span>
           </div>
-          {client.name || "N/A"}
+          <div className="flex flex-col">
+            <span className="group-hover:text-primary font-semibold text-gray-900 transition-colors">
+              {client.name || "N/A"}
+            </span>
+          </div>
         </div>
       </TableCell>
-      <TableCell className="py-0.5 text-start text-sm font-medium whitespace-nowrap">
-        {(client.birthDate !== "" &&
-          moment(client.birthDate).format("DD/MM/YYYY")) ||
-          "N/A"}
+
+      <TableCell className="py-4 text-start">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-gray-700">
+            {(client.birthDate !== "" &&
+              moment(client.birthDate).format("DD/MM/YYYY")) ||
+              "N/A"}
+          </span>
+        </div>
       </TableCell>
-      <TableCell className="w-80 max-w-80 truncate py-0.5 text-start text-sm font-medium whitespace-nowrap">
+
+      <TableCell className="max-w-[300px] py-4 text-start">
         <TooltipProvider>
           <Tooltip
             open={selectedTooltip === client.id}
@@ -78,31 +84,33 @@ export function GeneralClientTableItem({ client }: Props) {
                 setSelectedTooltip(client.id as string);
               }}
             >
-              <span className="w-80 max-w-80 truncate">
-                {client.description || "N/A"}
-              </span>
+              <p className="w-full truncate text-sm text-gray-600">
+                {client.description || "Sem descrição"}
+              </p>
             </TooltipTrigger>
             <TooltipContent
               className={cn(
-                "text-primary flex max-w-80 overflow-auto bg-white text-wrap xl:max-w-[500px]",
+                "border-sky-100 bg-white text-gray-700 shadow-xl",
                 client.description === "" && "hidden",
               )}
               side="top"
               align="start"
             >
-              <span>{client.description}</span>
+              <span className="block max-w-[300px] p-2 text-sm">
+                {client.description}
+              </span>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </TableCell>
-      <TableCell className="py-2 text-xs font-medium whitespace-nowrap text-zinc-400">
+
+      <TableCell className="py-4 pr-4">
         <div className="flex items-center justify-end">
           <button
             onClick={handleNavigation}
-            className="group flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary transition-all duration-300 hover:bg-primary hover:text-white hover:shadow-md"
+            className="hover:bg-primary hover:shadow-primary/20 group-hover:text-primary group-hover:bg-primary/5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 text-gray-400 transition-all duration-300 group-hover:bg-white hover:text-white hover:shadow-lg"
           >
-            <span>Acessar</span>
-            <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
+            <ChevronRight className="h-5 w-5" />
           </button>
         </div>
       </TableCell>

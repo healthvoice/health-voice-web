@@ -182,8 +182,10 @@ export function useSectionChat({ selectedPrompt }: UseSectionChatParams) {
   }
 
   /* ===== Enviar ===== */
-  async function handleSendMessage() {
-    if (loading || (!inputMessage.trim() && !file)) return;
+  async function handleSendMessage(overrideContent?: string) {
+    const textToSend = overrideContent || inputMessage;
+
+    if (loading || (!textToSend.trim() && !file)) return;
 
     setLoading(true);
 
@@ -198,8 +200,7 @@ export function useSectionChat({ selectedPrompt }: UseSectionChatParams) {
         name: file.name,
       });
     }
-    if (inputMessage.trim())
-      outgoing.push({ role: "user", content: inputMessage });
+    if (textToSend.trim()) outgoing.push({ role: "user", content: textToSend });
 
     setMessages((prev) => {
       const list = [...prev, ...outgoing, { role: "ai", content: "..." }];
@@ -217,8 +218,8 @@ export function useSectionChat({ selectedPrompt }: UseSectionChatParams) {
         const dataUrl = await fileToDataUrl(file);
         parts.push({
           type: "text",
-          text: inputMessage.trim()
-            ? inputMessage
+          text: textToSend.trim()
+            ? textToSend
             : "Descreva/responda considerando a imagem:",
         });
         parts.push({ type: "image_url", image_url: { url: dataUrl } });
@@ -227,8 +228,8 @@ export function useSectionChat({ selectedPrompt }: UseSectionChatParams) {
         const format = audioFormatFromMime(mime);
         parts.push({
           type: "text",
-          text: inputMessage.trim()
-            ? inputMessage
+          text: textToSend.trim()
+            ? textToSend
             : "Please transcribe this audio file, then answer the question.",
         });
         parts.push({
@@ -239,11 +240,11 @@ export function useSectionChat({ selectedPrompt }: UseSectionChatParams) {
       } else {
         parts.push({
           type: "text",
-          text: `Arquivo ${mime} anexado (não suportado diretamente). ${inputMessage}`.trim(),
+          text: `Arquivo ${mime} anexado (não suportado diretamente). ${textToSend}`.trim(),
         });
       }
-    } else if (inputMessage.trim()) {
-      parts.push({ type: "text", text: inputMessage });
+    } else if (textToSend.trim()) {
+      parts.push({ type: "text", text: textToSend });
     }
 
     // limpa UI

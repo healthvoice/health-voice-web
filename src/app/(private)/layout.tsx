@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { GeneralContextProvider } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
 import Lenis from "lenis";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
@@ -47,9 +48,16 @@ export default function RootLayout({
         >
           <Header />
           <Sidebar />
+          <Image
+            src="/pattern.png"
+            alt="Background"
+            fill
+            className="absolute h-full w-full object-cover opacity-[1%]"
+          />
+
           <div
             className={cn(
-              "relative z-10 mx-auto -mt-12 flex min-h-[75vh] w-full max-w-[1280px] flex-col gap-4 overflow-hidden rounded-3xl bg-white p-4",
+              "relative z-10 mx-auto -mt-14 flex min-h-[75vh] w-full max-w-[90%] flex-col gap-4 overflow-hidden rounded-3xl bg-white p-6",
               pathname.includes("/chat") && "min-h-[70vh]",
             )}
           >
