@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/context/auth";
+import { useApiContext } from "@/context/ApiContext";
 import { cn } from "@/utils/cn";
 import { maskCpfCnpj, maskPhone } from "@/utils/masks";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,7 +30,8 @@ const FormSchema = z.object({
 type FormValues = z.infer<typeof FormSchema>;
 
 export function CompleteRegistrationModal() {
-    const { profile, setProfile } = useSession();
+    const { profile, handleGetProfile } = useSession();
+    const { PutAPI } = useApiContext();
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -80,20 +82,37 @@ export function CompleteRegistrationModal() {
 
     const onSubmit = async (data: FormValues) => {
         setIsLoading(true);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        if (profile) {
-            const updatedProfile = {
-                ...profile,
-                name: data.name,
-                mobilePhone: data.phone,
-                cpfCnpj: data.cpfCnpj,
-            };
-            setProfile(updatedProfile);
-            toast.success("Cadastro atualizado com sucesso!");
-            setIsOpen(false);
+        try {
+            // Remove máscaras antes de enviar para a API
+            const cleanPhone = data.phone.replace(/\D/g, ""); // Remove tudo exceto números
+            const cleanCpfCnpj = data.cpfCnpj.replace(/\D/g, ""); // Remove tudo exceto números
+
+            // Envia os dados para a API
+            const response = await PutAPI(
+                "/user",
+                {
+                    name: data.name,
+                    mobilePhone: cleanPhone,
+                    cpfCnpj: cleanCpfCnpj,
+                },
+                true // true = requer autenticação
+            );
+
+            if (response.status === 200) {
+                toast.success("Cadastro atualizado com sucesso!");
+                // Recarrega o perfil da API para garantir dados atualizados
+                await handleGetProfile(true);
+                setIsOpen(false);
+            } else {
+                toast.error(response.body?.message || "Erro ao salvar dados. Tente novamente.");
+            }
+        } catch (error) {
+            console.error("Erro ao atualizar cadastro:", error);
+            toast.error("Erro ao conectar com o servidor. Tente novamente.");
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     if (!isOpen) return null;

@@ -107,7 +107,7 @@ const RegisterForm = () => {
                     create.body.accessToken,
                 );
                 toast.success("Conta criada com sucesso!");
-                router.push("/plans"); // Taking user to plans or dashboard
+                router.push("/"); // Taking user to plans or dashboard
             } else {
                 toast.error("Erro ao criar conta. Email ou CPF já cadastrado?");
             }
