@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { GeneralContextProvider } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
 import Lenis from "lenis";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -55,14 +56,18 @@ export default function RootLayout({
             className="absolute h-full w-full object-cover opacity-[1%]"
           />
 
-          <div
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
             className={cn(
               "relative z-10 mx-auto -mt-14 flex min-h-[75vh] w-full max-w-[90%] flex-col gap-4 overflow-hidden rounded-3xl bg-white p-6",
               pathname.includes("/chat") && "min-h-[70vh]",
             )}
           >
             {children}
-          </div>
+          </motion.div>
         </div>
       </GeneralContextProvider>
     </AuthGuard>

@@ -59,8 +59,9 @@ export interface RecordingDetailsProps {
   type: "CLIENT" | "REMINDER" | "OTHER" | "STUDY"; // Nota: O tipo da gravação ainda usa 'CLIENT' e 'REMINDER'
   transcription?: string | null;
   summary?: string | null;
-  client?: ClientProps | null; // Renomeado para 'client' mas usando ClientProps
-  reminderId?: string | null; // Renomeado para 'reminderId' mas referente a reminder
+  client?: ClientProps | null;
+  reminderId?: string | null;
+  reminder?: ReminderProps | null;
   transcriptionId?: string | null;
   speeches: RecordingSpeakerSpeechProps[];
   speakers: RecordingSpeakerProps[];

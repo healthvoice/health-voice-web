@@ -18,6 +18,9 @@ type FieldProps = {
   Svg?: ReactNode;
   maxLength?: number;
   invalid?: boolean;
+  autoComplete?: string;
+  inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search";
+  name?: string;
 };
 
 const Field = ({
@@ -36,6 +39,9 @@ const Field = ({
   Svg,
   maxLength,
   invalid,
+  autoComplete,
+  inputMode,
+  name,
 }: FieldProps) => {
   const handleKeyDown = (event: any) => {
     const remainingChars = 880 - value.length;
@@ -87,6 +93,9 @@ const Field = ({
               )}
               type={type || "text"}
               autoCapitalize="off"
+              autoComplete={autoComplete}
+              inputMode={inputMode}
+              name={name}
               value={value}
               onChange={onChange}
               disabled={disabled}

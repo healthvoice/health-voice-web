@@ -6,6 +6,7 @@ import "moment/locale/pt-br";
 import { CookiesProvider } from "next-client-cookies/server";
 import { Poppins } from "next/font/google";
 import Script from "next/script";
+import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "react-hot-toast";
 import "swiper/css";
 import "./globals.css";
@@ -42,6 +43,17 @@ export default function RootLayout({
         </Script>
       </head>
       <body className={`${poppins.variable} bg-neutral-100 text-black`}>
+        <NextTopLoader
+          color="linear-gradient(to right, #0d78ec, #3b82f6, #60a5fa)"
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #0d78ec,0 0 5px #0d78ec"
+        />
         <MobileAppBlocker />
 
         <Toaster

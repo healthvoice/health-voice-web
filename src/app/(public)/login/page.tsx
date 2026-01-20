@@ -1,13 +1,12 @@
 "use client";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import ForgotPassword from "./components/forgot";
 import SignIn from "./components/login";
 import LoginAnimation from "./components/LoginAnimation";
-import CreateAccount from "./components/register";
 
 export default function Login() {
-  const [selectedStep] = useState(0);
   const [forgot, setForgot] = useState<boolean>(false);
 
   return (
@@ -63,13 +62,29 @@ export default function Login() {
             {forgot ? (
               <ForgotPassword onClick={() => setForgot(false)} />
             ) : (
-              <div className={selectedStep !== 0 ? "hidden" : ""}>
-                <SignIn onClick={() => setForgot(true)} />
-              </div>
+              <SignIn onClick={() => setForgot(true)} />
             )}
 
-            <div className={selectedStep !== 1 ? "hidden" : ""}>
-              <CreateAccount />
+            <div className="mt-8 text-center text-sm text-gray-600">
+              {!forgot && (
+                <p>
+                  Não tem uma conta?{" "}
+                  <Link
+                    href="/register"
+                    className="font-semibold text-primary hover:text-blue-700 transition-colors"
+                  >
+                    Cadastre-se
+                  </Link>
+                </p>
+              )}
+              {forgot && (
+                <button
+                  onClick={() => setForgot(false)}
+                  className="font-semibold text-primary hover:text-blue-700 transition-colors"
+                >
+                  Voltar ao login
+                </button>
+              )}
             </div>
           </div>
         </div>

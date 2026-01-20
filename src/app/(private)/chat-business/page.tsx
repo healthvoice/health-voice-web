@@ -40,10 +40,10 @@ export default function ChatBusiness() {
   // Derive the prompt object for the hook
   const hookPrompt: Prompt | undefined = selectedSuggestion
     ? {
-        id: "business-prompt",
-        name: selectedSuggestion.title,
-        prompt: selectedSuggestion.prompt,
-      }
+      id: "business-prompt",
+      name: selectedSuggestion.title,
+      prompt: selectedSuggestion.prompt,
+    }
     : undefined;
 
   const {
@@ -74,7 +74,7 @@ export default function ChatBusiness() {
         "Envie a foto de um exame para identificar padrões e transcrever os achados clínicos principais.",
       icon: Camera, // Certifique-se de importar o ícone Camera ou Similar
       prompt:
-        "Atue como um especialista em radiologia e diagnóstico por imagem. Analise a imagem do exame fornecida, identifique os termos técnicos, transcreva os valores de referência e destaque qualquer desvio do padrão de normalidade encontrado. Explique o que esses termos significam em linguagem acessível, mas mantenha o rigor técnico. Importante: Finalize lembrando que esta análise é apenas informativa e deve ser validada por um médico.",
+        "Processa exames de imagem para extrair dados técnicos.",
     },
     {
       title: "Análise de Exames",
@@ -82,7 +82,7 @@ export default function ChatBusiness() {
         "Interprete resultados laboratoriais e receba uma explicação detalhada sobre cada marcador.",
       icon: FileText, // Certifique-se de importar o ícone FileText
       prompt:
-        "Atue como um analista clínico sênior. Com base nos dados do exame de sangue ou laboratorial fornecidos, compare os resultados com os valores de referência padrão. Explique a função de cada biomarcador alterado e quais são as possíveis causas fisiológicas para esses níveis. Apresente as informações de forma estruturada em tópicos. Nota: Ressalte que este relatório não é um diagnóstico definitivo.",
+        "Interpreta exames laboratoriais comparando resultados com valores de referência.",
     },
     {
       title: "Ajuda para Diagnóstico",
@@ -90,7 +90,7 @@ export default function ChatBusiness() {
         "Descreva sintomas e histórico para obter uma análise de possíveis hipóteses diagnósticas.",
       icon: Stethoscope, // Certifique-se de importar o ícone Stethoscope
       prompt:
-        "Atue como um clínico geral experiente no auxílio à decisão diagnóstica. Com base nos sintomas, histórico clínico e idade relatados, liste as hipóteses diagnósticas mais prováveis (diagnóstico diferencial). Sugira quais exames complementares poderiam ajudar a confirmar ou descartar cada hipótese. Adote um tom empático e profissional. Alerta: Instrua o usuário a procurar atendimento médico imediato em caso de sinais de alerta.",
+        "Auxilia no raciocínio clínico cruzando sintomas, idade e histórico do paciente.",
     },
     {
       title: "Responder Perguntas",
@@ -197,9 +197,8 @@ export default function ChatBusiness() {
 
         {/* Chat Container - Fixed Layout */}
         <div
-          className={`relative flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-500 ease-in-out ${
-            isExpanded ? "h-[90vh]" : "flex-1"
-          }`}
+          className={`relative flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-500 ease-in-out ${isExpanded ? "h-[90vh]" : "flex-1"
+            }`}
         >
           {/* Toggle Expand Button - Top Right */}
           <button

@@ -9,6 +9,7 @@ import { KPICard } from "./components/kpi-card";
 import { RecordingsChart } from "./components/recordings-chart";
 import { UpcomingMeetings } from "./components/upcoming-meetings";
 import { UpcomingReminders } from "./components/upcoming-reminders";
+import { CompleteRegistrationModal } from "./components/complete-registration-modal";
 
 // Mock data - será substituído por dados reais da API
 const generateMockChartData = (dateRange: DateRange | undefined) => {
@@ -181,6 +182,8 @@ export default function HomePage() {
         {/* Content Panel - takes 2 columns (same width as Chart) */}
         <ContentPanel className="min-h-[400px] lg:col-span-2" />
       </div>
+
+      <CompleteRegistrationModal />
     </div>
   );
 }

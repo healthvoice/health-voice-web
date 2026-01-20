@@ -179,6 +179,8 @@ const CreateAccount = () => {
                 <Field
                   classInput="border-white/50"
                   placeholder="Nome"
+                  name="name"
+                  autoComplete="name"
                   Svg={<User className="text-white/50" />}
                   value={field.value}
                   onChange={field.onChange}
@@ -198,6 +200,9 @@ const CreateAccount = () => {
                 <Field
                   classInput="border-white/50"
                   placeholder="Telefone"
+                  name="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
                   Svg={<Phone className="text-white/50" />}
                   value={maskPhone(field.value)}
                   onChange={(e: any) => field.onChange(e.target.value)}
@@ -218,6 +223,10 @@ const CreateAccount = () => {
                 <Field
                   classInput="border-white/50"
                   placeholder="Email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
                   Svg={<Mail className="text-white/50" />}
                   value={field.value}
                   onChange={field.onChange}
@@ -237,6 +246,8 @@ const CreateAccount = () => {
                 <Field
                   classInput="border-white/50"
                   placeholder="000.000.000-00"
+                  name="cpf"
+                  inputMode="numeric"
                   Svg={<Hash className="text-white/50" />}
                   value={field.value}
                   onChange={(e: any) =>
@@ -278,6 +289,8 @@ const CreateAccount = () => {
                   <Field
                     classInput="border-white/50"
                     placeholder="Senha"
+                    name="new-password"
+                    autoComplete="new-password"
                     Svg={<LockIcon className="text-white/50" />}
                     type={showPassword ? "text" : "password"}
                     value={field.value}
@@ -307,6 +320,8 @@ const CreateAccount = () => {
                   <Field
                     classInput="border-white/50"
                     placeholder="Repetir Senha"
+                    name="confirm-password"
+                    autoComplete="new-password"
                     Svg={<LockIcon className="text-white/50" />}
                     type={showRememberPassword ? "text" : "password"}
                     value={field.value}
