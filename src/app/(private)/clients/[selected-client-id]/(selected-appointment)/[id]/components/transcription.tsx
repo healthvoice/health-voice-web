@@ -2,7 +2,6 @@
 
 import { ActionSheet } from "@/components/ui/action-sheet";
 import { RequestTranscription } from "@/components/ui/request-transcription";
-import { WaveformAudioPlayer } from "@/components/ui/waveform-audio-player";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
 import { buildRowsFromSpeeches } from "@/utils/speeches";
@@ -131,12 +130,12 @@ export function Transcription() {
       <div className="flex max-h-[calc(100vh-200px)] w-full flex-col gap-6 overflow-y-auto rounded-2xl border border-slate-200 p-4">
         <div className="flex w-full flex-row items-center justify-between border-b border-b-slate-200 px-4 pt-2 pb-2">
           <div className="flex-1" />
-          {selectedRecording?.audioUrl && (
+          {/* {selectedRecording?.audioUrl && (
             <WaveformAudioPlayer
               audioUrl={selectedRecording.audioUrl}
               videoDuration={selectedRecording.duration}
             />
-          )}
+          )} */}
           <div className="flex flex-1 items-center justify-end">
             <button
               onClick={() => setIsModalOpen(true)}
