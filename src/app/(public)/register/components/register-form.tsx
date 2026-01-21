@@ -1,46 +1,33 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useApiContext } from "@/context/ApiContext";
-import { maskCpfCnpj, maskPhone } from "@/utils/masks";
+import { useSession } from "@/context/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Amplify } from "aws-amplify";
+import { signIn, signUp } from "aws-amplify/auth";
 import {
     Eye,
     EyeOff,
-    Hash,
     Loader2,
     LockIcon,
     Mail,
-    Phone,
     User,
 } from "lucide-react";
-import { useCookies } from "next-client-cookies";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { UseFormReturn, useForm } from "react-hook-form";
+import { useCallback, useState } from "react";
+import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
+import config from "../../../../utils/amplify.json";
 import Field from "../../login/components/field";
 import { Form, FormField, FormItem, FormMessage } from "../../login/components/form";
-
-export interface RegisterClientServiceRequest {
-    name: string;
-    email: string;
-    password: string;
-    phone: string;
-    cpfCnpj: string;
-    coupon?: string;
-}
 
 const FormSchema = z.object({
     name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
     email: z.string().email({ message: "Email Inválido" }),
-    phone: z.string().min(14, "Telefone inválido (mínimo 10 dítigos)"), // (XX) XXXX-XXXX is 14 chars. (XX) X XXXX-XXXX is 16 chars.
-    cpfCnpj: z.string().min(14, "CPF/CNPJ inválido"),
-    coupon: z.string().optional(),
     password: z
         .object({
-            password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+            password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres"),
             confirm: z.string(),
         })
         .refine((data) => data.password === data.confirm, {
@@ -50,12 +37,13 @@ const FormSchema = z.object({
 });
 
 const RegisterForm = () => {
-    const { PostAPI } = useApiContext();
-    const cookies = useCookies();
+    const { handleGetProfile, waitForTokens, forceSignOut, checkSession } = useSession();
     const router = useRouter();
     const [isCreating, setIsCreating] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showRememberPassword, setShowRememberPassword] = useState(false);
+
+    Amplify.configure(config);
 
     // Initializing with correct defaults
     const form = useForm<z.infer<typeof FormSchema>>({
@@ -63,10 +51,7 @@ const RegisterForm = () => {
         mode: "onChange",
         defaultValues: {
             name: "",
-            phone: "",
             email: "",
-            cpfCnpj: "",
-            coupon: "",
             password: {
                 password: "",
                 confirm: "",
@@ -74,46 +59,179 @@ const RegisterForm = () => {
         },
     });
 
-    const useFormSteps = (form: UseFormReturn<z.infer<typeof FormSchema>>) => {
-        // Only one step for now, but keeping structure if needed
-        const validateStep = async () => {
-            return await form.trigger();
-        };
-        return { validateStep };
+    const authenticateUser = useCallback(
+        async (authFunction: () => Promise<void>) => {
+            try {
+                try {
+                    const currentSession = await checkSession();
+                    console.log("🔍 Estado da sessão antes de autenticar:", currentSession);
+
+                    if (currentSession) {
+                        console.log("⚠️ Já existe uma sessão ativa!");
+                        await handleGetProfile(true);
+                        return;
+                    }
+                } catch (diagError) {
+                    console.log("✅ Nenhuma sessão ativa (esperado):", diagError);
+                }
+
+                console.log("🔐 Iniciando autenticação...");
+                await authFunction();
+            } catch (error: any) {
+                console.error("❌ Erro na autenticação:", error);
+
+                if (error?.name === "UserAlreadyAuthenticatedException") {
+                    console.log("🔄 UserAlreadyAuthenticatedException detectado");
+                    return;
+                }
+
+                if (error?.name === "NotAuthorizedException") {
+                    console.log("🔄 Tentando limpar cache e reconectar...");
+
+                    try {
+                        await forceSignOut();
+                        await new Promise((resolve) => setTimeout(resolve, 500));
+
+                        console.log("🔄 Tentando login novamente...");
+                        await authFunction();
+                        return;
+                    } catch (retryError: any) {
+                        console.error("❌ Falha no retry:", retryError);
+                        error = retryError;
+                    }
+                }
+
+                let errorMessage = "Ocorreu um erro. Tente novamente.";
+
+                switch (error?.name) {
+                    case "NotAuthorizedException":
+                        errorMessage = "E-mail ou senha incorretos.";
+                        break;
+                    case "UserNotFoundException":
+                        errorMessage = "Usuário não encontrado.";
+                        break;
+                    case "NetworkError":
+                        errorMessage = "Erro de conexão. Verifique sua internet.";
+                        break;
+                    default:
+                        errorMessage = error?.message || errorMessage;
+                }
+
+                toast.error(errorMessage);
+            }
+        },
+        [checkSession, handleGetProfile, forceSignOut]
+    );
+
+    const handleLogin = async ({
+        email,
+        password,
+    }: {
+        email: string;
+        password: string;
+    }) => {
+        await authenticateUser(async () => {
+            console.log("📧 Fazendo login com email/senha...");
+
+            const { isSignedIn } = await signIn({
+                username: email.trim(),
+                password: password.trim(),
+                options: { authFlowType: "USER_PASSWORD_AUTH" },
+            });
+            console.log("isSignedIn", isSignedIn);
+            if (isSignedIn) {
+                console.log("✅ SignIn bem-sucedido, aguardando tokens...");
+
+                const tokensReady = await waitForTokens();
+
+                if (tokensReady) {
+                    console.log("✅ Tokens prontos, carregando perfil...");
+                    await handleGetProfile(true);
+                } else {
+                    throw new Error("Timeout ao aguardar tokens do Amplify");
+                }
+            } else {
+                throw new Error("Falha na autenticação");
+            }
+        });
     };
 
-    const { validateStep } = useFormSteps(form);
-
-    const handleNext = async () => {
-        const isValid = await validateStep();
-        if (!isValid) {
-            toast.error("Por favor, corrija os campos destacados em vermelho.");
-            return;
-        }
-
+    const handleRegister = async (data: z.infer<typeof FormSchema>) => {
+        if (isCreating) return;
         setIsCreating(true);
+
         try {
-            const create = await PostAPI(
-                "/client/register",
-                {
-                    ...form.getValues(),
-                    password: form.getValues("password").password,
+            const { name, email, password } = data;
+            const passwordValue = password.password;
+
+            const { isSignUpComplete, nextStep } = await signUp({
+                username: email.trim(),
+                password: passwordValue,
+                options: {
+                    userAttributes: {
+                        name,
+                        email: email.trim(),
+                    },
                 },
-                false,
-            );
-            if (create.status === 200) {
-                cookies.set(
-                    process.env.NEXT_PUBLIC_USER_TOKEN as string,
-                    create.body.accessToken,
-                );
+            });
+
+            console.log("nextStep", nextStep);
+            console.log("isSignUpComplete", isSignUpComplete);
+
+            if (isSignUpComplete) {
                 toast.success("Conta criada com sucesso!");
-                router.push("/"); // Taking user to plans or dashboard
-            } else {
-                toast.error("Erro ao criar conta. Email ou CPF já cadastrado?");
+                await handleLogin({
+                    email: email.trim(),
+                    password: passwordValue,
+                });
+                router.push("/");
+            } else if (nextStep?.signUpStep === "CONFIRM_SIGN_UP") {
+                toast.success("Conta criada! Verifique seu e-mail para confirmar.");
+                // Neste caso, sem verificação, vamos tentar fazer login mesmo assim
+                await handleLogin({
+                    email: email.trim(),
+                    password: passwordValue,
+                });
+                router.push("/");
             }
-        } catch (error) {
-            console.error(error);
-            toast.error("Erro desconhecido ao criar conta.");
+        } catch (err: any) {
+            console.error(err);
+
+            switch (err?.name) {
+                case "UsernameExistsException":
+                    form.setError("email", {
+                        type: "manual",
+                        message: "Este e-mail já está cadastrado.",
+                    });
+                    toast.error("E-mail já cadastrado. Tente fazer login ou recuperar a senha.");
+                    break;
+
+                case "InvalidPasswordException":
+                    form.setError("password.password", {
+                        type: "manual",
+                        message: "Senha não atende aos requisitos do sistema.",
+                    });
+                    toast.error("Senha inválida. Use pelo menos 8 caracteres.");
+                    break;
+
+                case "InvalidParameterException":
+                    toast.error("Dados inválidos. " + (err.message || ""));
+                    break;
+
+                case "TooManyRequestsException":
+                case "LimitExceededException":
+                    toast.error("Muitas tentativas. Tente novamente em alguns minutos.");
+                    break;
+
+                case "NetworkError":
+                case "ServiceUnavailableException":
+                    toast.error("Sem conexão. Verifique sua internet e tente novamente.");
+                    break;
+
+                default:
+                    toast.error("Erro ao criar conta. " + (err?.message || "Tente novamente."));
+                    break;
+            }
         } finally {
             setIsCreating(false);
         }
@@ -122,7 +240,7 @@ const RegisterForm = () => {
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === "Enter") {
             e.preventDefault();
-            handleNext();
+            form.handleSubmit(handleRegister)();
         }
     };
 
@@ -172,54 +290,6 @@ const RegisterForm = () => {
                         </FormItem>
                     )}
                 />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field, fieldState }) => (
-                            <FormItem>
-                                <Field
-                                    placeholder="(XX) 9 9999-9999"
-                                    label="Telefone (WhatsApp)"
-                                    name="tel"
-                                    autoComplete="tel"
-                                    inputMode="tel"
-                                    Svg={<Phone className="text-blue-400" size={20} />}
-                                    value={maskPhone(field.value)}
-                                    onChange={(e: any) => field.onChange(e.target.value)}
-                                    required
-                                    maxLength={16}
-                                    invalid={!!fieldState.error}
-                                />
-                                <FormMessage className="text-xs text-red-500 font-medium ml-1" />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="cpfCnpj"
-                        render={({ field, fieldState }) => (
-                            <FormItem>
-                                <Field
-                                    placeholder="000.000.000-00"
-                                    label="CPF ou CNPJ"
-                                    name="cpf"
-                                    inputMode="numeric"
-                                    Svg={<Hash className="text-blue-400" size={20} />}
-                                    value={field.value}
-                                    onChange={(e: any) =>
-                                        field.onChange(maskCpfCnpj(e.target.value))
-                                    }
-                                    required
-                                    maxLength={18}
-                                    invalid={!!fieldState.error}
-                                />
-                                <FormMessage className="text-xs text-red-500 font-medium ml-1" />
-                            </FormItem>
-                        )}
-                    />
-                </div>
 
                 <FormField
                     control={form.control}
@@ -292,7 +362,7 @@ const RegisterForm = () => {
 
             <div className="mt-6 flex w-full flex-col gap-4">
                 <button
-                    onClick={handleNext}
+                    onClick={form.handleSubmit(handleRegister)}
                     disabled={isCreating}
                     className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
