@@ -25,18 +25,26 @@ export function FamilyHistoryCard({
         {title}
       </h3>
       <div className="space-y-4">
-        {data.familyHistory.map((item, idx) => (
-          <div
-            key={idx}
-            className="relative border-l-2 border-dashed border-gray-200 pl-4"
-          >
-            <p className="text-sm font-bold text-gray-800">{item.relation}</p>
-            <p className="text-sm text-gray-600">{item.condition}</p>
-            <p className="mt-1 text-xs text-gray-400">
-              Diagnóstico: {item.age}
-            </p>
+        {data.familyHistory && Array.isArray(data.familyHistory) && data.familyHistory.length > 0 ? (
+          data.familyHistory.map((item, idx) => (
+            <div
+              key={idx}
+              className="relative border-l-2 border-dashed border-gray-200 pl-4"
+            >
+              <p className="text-sm font-bold text-gray-800">{item.relation || 'N/A'}</p>
+              <p className="text-sm text-gray-600">{item.condition || 'N/A'}</p>
+              {item.age && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Diagnóstico: {item.age}
+                </p>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-4 text-sm text-gray-500">
+            Nenhum histórico familiar disponível
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

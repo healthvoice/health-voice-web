@@ -29,12 +29,13 @@ export function CertificatesCard({
         <div>
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
           <p className="text-xs text-gray-400">
-            {data.certificates.length} atestado(s)
+            {data.certificates && Array.isArray(data.certificates) ? data.certificates.length : 0} atestado(s)
           </p>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {data.certificates.map((cert) => (
+        {data.certificates && Array.isArray(data.certificates) && data.certificates.length > 0 ? (
+          data.certificates.map((cert) => (
           <div
             key={cert.id}
             className={`flex items-start justify-between rounded-xl border ${styles.border} bg-white p-5 shadow-sm transition-all hover:shadow-md`}
@@ -54,7 +55,12 @@ export function CertificatesCard({
               </span>
             </div>
           </div>
-        ))}
+        ))
+        ) : (
+          <div className="col-span-2 text-center py-8 text-sm text-gray-500">
+            Nenhum atestado disponível
+          </div>
+        )}
       </div>
     </section>
   );

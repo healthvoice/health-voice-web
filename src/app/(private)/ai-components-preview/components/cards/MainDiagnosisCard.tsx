@@ -22,6 +22,26 @@ export function MainDiagnosisCard({
   const ClockIcon = getIcon("clock");
   const FileIcon = getIcon("file-text");
 
+  // Detectar formato: genérico (fields[]) ou legado (mainCondition, etc.)
+  const isGenericFormat = data.fields && Array.isArray(data.fields) && data.fields.length > 0;
+  const fields = isGenericFormat 
+    ? data.fields.sort((a, b) => (a.priority || 0) - (b.priority || 0))
+    : [];
+
+  // Converter formato legado para genérico
+  const legacyFields = [
+    data.mainCondition && { label: "Condição Principal", value: data.mainCondition, variant: "highlight" as const, priority: 1 },
+    data.cid && { label: "CID", value: data.cid, priority: 2 },
+    data.confidence && { label: "Confiança", value: data.confidence, priority: 3 },
+    data.severity && { label: "Severidade", value: data.severity, priority: 4 },
+    data.evolution && { label: "Evolução", value: data.evolution, priority: 5 },
+  ].filter(Boolean) as typeof fields;
+
+  const displayFields = isGenericFormat ? fields : legacyFields;
+  const mainCondition = displayFields.find(f => f.label.toLowerCase().includes('condição') || f.label.toLowerCase().includes('condition'))?.value || data.mainCondition || 'N/A';
+  const cid = displayFields.find(f => f.label.toLowerCase().includes('cid'))?.value || data.cid;
+  const justification = data.content || data.justification || '';
+
   return (
     <div
       className={`rounded-2xl border ${styles.border} bg-gradient-to-br ${styles.bg} to-white p-6 shadow-sm ring-1 ${styles.border}/50`}
@@ -36,45 +56,55 @@ export function MainDiagnosisCard({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold text-gray-900">
-                {data.mainCondition}
+                {mainCondition}
               </h2>
-              <span
-                className={`rounded-full border ${styles.border} ${styles.bg} px-2.5 py-0.5 text-xs font-semibold ${styles.text}`}
-              >
-                CID: {data.cid}
-              </span>
+              {cid && (
+                <span
+                  className={`rounded-full border ${styles.border} ${styles.bg} px-2.5 py-0.5 text-xs font-semibold ${styles.text}`}
+                >
+                  CID: {cid}
+                </span>
+              )}
             </div>
             <p className="mt-1 text-base text-gray-500">
               Diagnóstico Principal Identificado
             </p>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <div className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-gray-200">
-                <ActivityIcon className="h-4 w-4 text-emerald-500" />
-                Confiança: <span className="text-gray-900">{data.confidence}</span>
+            {displayFields.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-3">
+                {displayFields.filter(f => 
+                  !f.label.toLowerCase().includes('condição') && 
+                  !f.label.toLowerCase().includes('condition') &&
+                  !f.label.toLowerCase().includes('cid')
+                ).map((field, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-gray-200">
+                    {field.label.toLowerCase().includes('confiança') || field.label.toLowerCase().includes('confidence') ? (
+                      <ActivityIcon className="h-4 w-4 text-emerald-500" />
+                    ) : field.label.toLowerCase().includes('severidade') || field.label.toLowerCase().includes('severity') ? (
+                      <AlertIcon className="h-4 w-4 text-amber-500" />
+                    ) : field.label.toLowerCase().includes('evolução') || field.label.toLowerCase().includes('evolution') ? (
+                      <ClockIcon className="h-4 w-4 text-blue-500" />
+                    ) : null}
+                    {field.label}: <span className="text-gray-900">{field.value}</span>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-gray-200">
-                <AlertIcon className="h-4 w-4 text-amber-500" />
-                Severidade: <span className="text-gray-900">{data.severity}</span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-gray-200">
-                <ClockIcon className="h-4 w-4 text-blue-500" />
-                Evolução: <span className="text-gray-900">{data.evolution}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className={`mt-6 rounded-xl border ${styles.border} bg-white/60 p-5`}>
-        <h3
-          className={`mb-2 flex items-center gap-2 text-sm font-semibold ${styles.text}`}
-        >
-          <FileIcon className="h-4 w-4" />
-          Justificativa Clínica
-        </h3>
-        <p className="leading-relaxed text-gray-700">{data.justification}</p>
-      </div>
+      {justification && (
+        <div className={`mt-6 rounded-xl border ${styles.border} bg-white/60 p-5`}>
+          <h3
+            className={`mb-2 flex items-center gap-2 text-sm font-semibold ${styles.text}`}
+          >
+            <FileIcon className="h-4 w-4" />
+            Justificativa Clínica
+          </h3>
+          <p className="leading-relaxed text-gray-700">{justification}</p>
+        </div>
+      )}
     </div>
   );
 }

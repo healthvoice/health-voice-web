@@ -34,14 +34,20 @@ export function RiskFactorsCard({
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        {data.riskFactors.map((factor, idx) => (
-          <span
-            key={idx}
-            className={`inline-flex items-center rounded-lg border ${styles.border} ${styles.bg} px-3 py-1.5 text-sm font-medium ${styles.text}`}
-          >
-            {factor}
-          </span>
-        ))}
+        {data.riskFactors && Array.isArray(data.riskFactors) && data.riskFactors.length > 0 ? (
+          data.riskFactors.map((factor, idx) => (
+            <span
+              key={idx}
+              className={`inline-flex items-center rounded-lg border ${styles.border} ${styles.bg} px-3 py-1.5 text-sm font-medium ${styles.text}`}
+            >
+              {factor}
+            </span>
+          ))
+        ) : (
+          <div className="w-full text-center py-4 text-sm text-gray-500">
+            Nenhum fator de risco identificado
+          </div>
+        )}
       </div>
     </div>
   );

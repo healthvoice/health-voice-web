@@ -28,9 +28,15 @@ export function ObservationsCard({
         </div>
         <h3 className="font-semibold text-gray-900">{title}</h3>
       </div>
-      <p className="text-sm leading-relaxed text-gray-600">
-        {data.observations}
-      </p>
+      {data.observations ? (
+        <p className="text-sm leading-relaxed text-gray-600">
+          {data.observations}
+        </p>
+      ) : (
+        <p className="text-sm text-gray-500 italic">
+          Nenhuma observação disponível
+        </p>
+      )}
     </div>
   );
 }

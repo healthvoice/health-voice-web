@@ -1,34 +1,32 @@
 "use client";
 
-import { AISection } from "../types/component-types";
+import { AISection, AIComponent } from "../types/component-types";
 import { ComponentRenderer } from "./ComponentRenderer";
 
 interface SectionRendererProps {
   section: AISection;
 }
 
-// Componentes grandes que precisam de largura total (ocupam linha inteira)
-const LARGE_COMPONENTS = [
+// Componentes que sempre ocupam largura total (não devem estar em grid)
+const FULL_WIDTH_COMPONENTS = [
   "main_diagnosis_card",
   "treatment_plan_card",
   "medical_history_timeline_card",
+  "orientations_card",
+  "clinical_notes_card",
+];
+
+// Componentes que podem ocupar 2 colunas ou mais (médio-grande)
+const WIDE_COMPONENTS = [
   "prescription_card",
   "exams_card",
   "referrals_card",
   "certificates_card",
-  "orientations_card",
-  "clinical_notes_card",
   "next_appointments_card",
 ];
 
-// Componentes médios que podem ocupar 2 colunas em desktop
-const MEDIUM_COMPONENTS = [
-  "differential_diagnosis_card",
-  "observations_card",
-];
-
-// Componentes pequenos que ficam bem lado a lado em grid compacto
-const SMALL_COMPONENTS = [
+// Componentes compactos que funcionam bem em grid (pequenos-médios)
+const COMPACT_COMPONENTS = [
   "biometrics_card",
   "allergies_card",
   "chronic_conditions_card",
@@ -38,28 +36,134 @@ const SMALL_COMPONENTS = [
   "symptoms_card",
   "risk_factors_card",
   "suggested_exams_card",
+  "differential_diagnosis_card",
+  "observations_card",
 ];
 
+/**
+ * Calcula a quantidade de itens/conteúdo em um componente
+ */
+function getComponentItemCount(component: AIComponent): number {
+  const data = component.data || {};
+  
+  // Tentar diferentes estruturas de dados
+  if (data.items && Array.isArray(data.items)) return data.items.length;
+  if (data.fields && Array.isArray(data.fields)) return data.fields.length;
+  if (data.prescriptions && Array.isArray(data.prescriptions)) {
+    return data.prescriptions.reduce((acc: number, p: any) => acc + (p.items?.length || 0), 0);
+  }
+  if (data.exams && Array.isArray(data.exams)) {
+    return data.exams.reduce((acc: number, e: any) => acc + (e.items?.length || 0), 0);
+  }
+  if (data.appointments && Array.isArray(data.appointments)) return data.appointments.length;
+  if (data.symptoms && Array.isArray(data.symptoms)) return data.symptoms.length;
+  if (data.allergies && Array.isArray(data.allergies)) return data.allergies.length;
+  if (data.orientations && Array.isArray(data.orientations)) return data.orientations.length;
+  if (data.referrals && Array.isArray(data.referrals)) return data.referrals.length;
+  if (data.certificates && Array.isArray(data.certificates)) return data.certificates.length;
+  if (data.riskFactors && Array.isArray(data.riskFactors)) return data.riskFactors.length;
+  if (data.familyHistory && Array.isArray(data.familyHistory)) return data.familyHistory.length;
+  if (data.differentials && Array.isArray(data.differentials)) return data.differentials.length;
+  if (data.suggestedExams && Array.isArray(data.suggestedExams)) return data.suggestedExams.length;
+  if (data.personal && typeof data.personal === 'object') {
+    return Object.values(data.personal).filter(v => v).length;
+  }
+  
+  return 0;
+}
+
+/**
+ * Determina quantas colunas um componente deve ocupar baseado no conteúdo
+ */
+function getComponentSpan(component: AIComponent, totalComponents: number): number {
+  const itemCount = getComponentItemCount(component);
+  
+  // Se é componente de largura total, sempre 1 (mas ocupa toda a linha)
+  if (FULL_WIDTH_COMPONENTS.includes(component.type)) {
+    return 1; // Será renderizado separadamente
+  }
+  
+  // Se há apenas 1 componente na seção (exceto full-width), limitar largura
+  if (totalComponents === 1) {
+    if (WIDE_COMPONENTS.includes(component.type)) {
+      return 1; // Mas com max-width aplicado no card
+    }
+    if (COMPACT_COMPONENTS.includes(component.type)) {
+      return 1; // Mas com max-width aplicado no card
+    }
+  }
+  
+  // Para componentes wide
+  if (WIDE_COMPONENTS.includes(component.type)) {
+    if (itemCount === 0) return 1;
+    if (itemCount <= 2) return 1; // Poucos itens = 1 coluna
+    return 1; // Mantém 1 coluna mas pode expandir
+  }
+  
+  // Para componentes compactos
+  if (COMPACT_COMPONENTS.includes(component.type)) {
+    if (itemCount === 0) return 1;
+    if (itemCount >= 4) return 2; // Muitos itens = pode ocupar 2 colunas
+    if (itemCount >= 3) {
+      // Verificar se tem muitos tags/metadata
+      const data = component.data || {};
+      const items = data.items || data.symptoms || [];
+      const hasManyTags = items.some((item: any) => 
+        (item.metadata && item.metadata.length > 2) || 
+        (item.tags && item.tags.length > 2)
+      );
+      return hasManyTags ? 2 : 1;
+    }
+    return 1; // Poucos itens = 1 coluna
+  }
+  
+  return 1;
+}
+
 function categorizeComponents(components: AISection["components"]) {
-  const large: typeof components = [];
-  const medium: typeof components = [];
-  const small: typeof components = [];
+  const fullWidth: typeof components = [];
+  const gridComponents: Array<{ component: AIComponent; span: number }> = [];
+
+  if (!components || !Array.isArray(components)) {
+    return { fullWidth, gridComponents };
+  }
+
+  const totalComponents = components.length;
 
   components.forEach((component) => {
-    if (LARGE_COMPONENTS.includes(component.type)) {
-      large.push(component);
-    } else if (MEDIUM_COMPONENTS.includes(component.type)) {
-      medium.push(component);
+    if (FULL_WIDTH_COMPONENTS.includes(component.type)) {
+      fullWidth.push(component);
     } else {
-      small.push(component);
+      const span = getComponentSpan(component, totalComponents);
+      gridComponents.push({ component, span });
     }
   });
 
-  return { large, medium, small };
+  return { fullWidth, gridComponents };
 }
 
 export function SectionRenderer({ section }: SectionRendererProps) {
-  const { large, medium, small } = categorizeComponents(section.components);
+  // Verificar se components existe e é um array
+  if (!section.components || !Array.isArray(section.components) || section.components.length === 0) {
+    return (
+      <section className="mb-10">
+        <div className="mb-6 flex items-start justify-between border-b border-gray-100 pb-4">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-gray-900">{section.title}</h2>
+            {section.description && (
+              <p className="mt-1 text-sm text-gray-500">{section.description}</p>
+            )}
+          </div>
+        </div>
+        <div className="text-center text-gray-500 py-8">
+          <p>Nenhum componente disponível nesta seção</p>
+        </div>
+      </section>
+    );
+  }
+
+  const { fullWidth, gridComponents } = categorizeComponents(section.components);
+  const totalGridComponents = gridComponents.length;
 
   return (
     <section className="mb-10">
@@ -74,33 +178,43 @@ export function SectionRenderer({ section }: SectionRendererProps) {
       </div>
 
       <div className="flex flex-col gap-6">
-        {/* Componentes grandes - Largura total, um abaixo do outro */}
-        {large.length > 0 && (
+        {/* Componentes de largura total - Um abaixo do outro */}
+        {fullWidth.length > 0 && (
           <div className="flex flex-col gap-6">
-            {large.map((component, idx) => (
-              <ComponentRenderer key={`large-${idx}`} component={component} />
+            {fullWidth.map((component, idx) => (
+              <ComponentRenderer key={`full-${idx}`} component={component} />
             ))}
           </div>
         )}
 
-        {/* Componentes médios - Grid de 2 colunas */}
-        {medium.length > 0 && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {medium.map((component, idx) => (
-              <ComponentRenderer key={`medium-${idx}`} component={component} />
-            ))}
-          </div>
-        )}
-
-        {/* Componentes pequenos - Grid responsivo compacto */}
-        {/* Mobile: 1 coluna | Tablet: 2 colunas | Desktop: 3 colunas | XL: 4 colunas */}
-        {small.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {small.map((component, idx) => (
-              <div key={`small-${idx}`} className="h-full">
-                <ComponentRenderer component={component} />
-              </div>
-            ))}
+        {/* Grid inteligente para componentes restantes */}
+        {gridComponents.length > 0 && (
+          <div 
+            className={`grid gap-4 md:gap-6 ${
+              totalGridComponents === 1 
+                ? 'justify-items-start' // Alinha à esquerda quando há apenas 1 componente
+                : ''
+            }`}
+            style={{
+              gridTemplateColumns: totalGridComponents === 1 
+                ? 'max-content' // Se há apenas 1 componente, usa apenas o espaço necessário
+                : 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', // Múltiplos componentes = grid flexível
+            }}
+          >
+            {gridComponents.map(({ component, span }, idx) => {
+              // Se há apenas 1 componente no grid, não aplicar span (deixa o card controlar sua largura)
+              const gridColumnSpan = totalGridComponents === 1 ? undefined : span > 1 ? `span ${span}` : undefined;
+              
+              return (
+                <div 
+                  key={`grid-${idx}`} 
+                  className="h-full w-full"
+                  style={gridColumnSpan ? { gridColumn: gridColumnSpan } : undefined}
+                >
+                  <ComponentRenderer component={component} />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

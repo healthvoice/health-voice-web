@@ -17,9 +17,22 @@ export function SocialHistoryCard({
 }: SocialHistoryCardProps) {
   const styles = getVariantStyles(variant);
   const UsersIcon = getIcon("users");
-  const CigaretteIcon = getIcon("cigarette");
-  const WineIcon = getIcon("wine");
-  const ActivityIcon = getIcon("activity");
+
+  // Detectar formato: genérico (fields[]) ou legado (socialHistory{})
+  const isGenericFormat = data.fields && Array.isArray(data.fields) && data.fields.length > 0;
+  const fields = isGenericFormat 
+    ? data.fields.sort((a, b) => (a.priority || 0) - (b.priority || 0))
+    : [];
+
+  // Converter formato legado para genérico
+  const legacyFields = data.socialHistory ? [
+    data.socialHistory.smoking && { label: "Tabagismo", value: data.socialHistory.smoking, priority: 1 },
+    data.socialHistory.alcohol && { label: "Consumo de Álcool", value: data.socialHistory.alcohol, priority: 2 },
+    data.socialHistory.activity && { label: "Atividade Física", value: data.socialHistory.activity, priority: 3 },
+    data.socialHistory.diet && { label: "Dieta", value: data.socialHistory.diet, priority: 4 },
+  ].filter(Boolean) as typeof fields : [];
+
+  const displayFields = isGenericFormat ? fields : legacyFields;
 
   return (
     <div className="h-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -28,31 +41,19 @@ export function SocialHistoryCard({
         {title}
       </h3>
       <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          <CigaretteIcon className="mt-0.5 h-5 w-5 text-gray-400" />
-          <div>
-            <p className="text-sm font-medium text-gray-900">Tabagismo</p>
-            <p className="text-sm text-gray-500">{data.socialHistory.smoking}</p>
+        {displayFields.length > 0 ? displayFields.map((field, idx) => (
+          <div key={idx} className="flex items-start gap-3">
+            <div className="mt-0.5 h-5 w-5 rounded-full bg-gray-200" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">{field.label}</p>
+              <p className="text-sm text-gray-500">{field.value}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <WineIcon className="mt-0.5 h-5 w-5 text-gray-400" />
-          <div>
-            <p className="text-sm font-medium text-gray-900">
-              Consumo de Álcool
-            </p>
-            <p className="text-sm text-gray-500">{data.socialHistory.alcohol}</p>
+        )) : (
+          <div className="text-center py-4 text-sm text-gray-500">
+            Dados não disponíveis
           </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <ActivityIcon className="mt-0.5 h-5 w-5 text-gray-400" />
-          <div>
-            <p className="text-sm font-medium text-gray-900">
-              Atividade Física
-            </p>
-            <p className="text-sm text-gray-500">{data.socialHistory.activity}</p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { Pill } from "lucide-react";
-import { MedicationsCardData } from "../../types/component-types";
+import { MedicationsCardData, GenericListItem } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface MedicationsCardProps {
@@ -18,9 +18,28 @@ export function MedicationsCard({
   const styles = getVariantStyles(variant);
   const Icon = getIcon("pill");
 
+  // Detectar formato: genérico (items[]) ou legado (medications[])
+  const isGenericFormat = data.items && Array.isArray(data.items) && data.items.length > 0;
+  const items = isGenericFormat ? data.items : [];
+  
+  // Converter formato legado para genérico
+  const legacyItems = data.medications && Array.isArray(data.medications)
+    ? data.medications.map((med) => ({
+        primary: med.name,
+        metadata: [
+          med.frequency && { label: "Frequência", value: med.frequency },
+          med.type && { label: "Tipo", value: med.type },
+        ].filter(Boolean) as Array<{ label: string; value: string }>,
+      }))
+    : [];
+
+  const displayItems = isGenericFormat ? items : legacyItems;
+
+  const itemCount = displayItems.length;
+  
   return (
     <div
-      className={`h-full rounded-2xl border ${styles.border} ${styles.bg} p-4 shadow-sm`}
+      className={`h-full w-full ${itemCount <= 2 ? 'max-w-[450px]' : ''} rounded-2xl border ${styles.border} ${styles.bg} p-4 shadow-sm`}
     >
       <div className="mb-4 flex items-center gap-3">
         <div
@@ -33,19 +52,34 @@ export function MedicationsCard({
         </h3>
       </div>
       <div className="space-y-2">
-        {data.medications.map((med, idx) => (
-          <div
-            key={idx}
-            className={`rounded-lg border ${styles.border} bg-white p-2 shadow-sm`}
-          >
-            <span
-              className={`block text-sm font-medium ${variant === "teal" ? "text-teal-900" : "text-gray-900"}`}
+        {displayItems && displayItems.length > 0 ? (
+          displayItems.map((item, idx) => (
+            <div
+              key={idx}
+              className={`rounded-lg border ${styles.border} bg-white p-2 shadow-sm`}
             >
-              {med.name}
-            </span>
-            <span className="text-[10px] text-gray-500">{med.frequency}</span>
+              <span
+                className={`block text-sm font-medium ${variant === "teal" ? "text-teal-900" : "text-gray-900"}`}
+              >
+                {item.primary}
+              </span>
+              {item.metadata && item.metadata.length > 0 && (
+                <span className="text-[10px] text-gray-500">
+                  {item.metadata.map((meta, i) => (
+                    <span key={i}>
+                      {i > 0 && ' • '}
+                      {meta.value}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-4 text-sm text-gray-500">
+            Nenhum item disponível
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

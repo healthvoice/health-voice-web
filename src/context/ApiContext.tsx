@@ -8,6 +8,7 @@ import config from "../utils/amplify.json";
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL;
 
+console.log(baseURL);
 interface ApiContextProps {
   PostAPI: (
     url: string,

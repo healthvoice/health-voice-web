@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity } from "lucide-react";
-import { ChronicConditionsCardData } from "../../types/component-types";
+import { ChronicConditionsCardData, GenericListItem } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface ChronicConditionsCardProps {
@@ -18,6 +18,23 @@ export function ChronicConditionsCard({
   const styles = getVariantStyles(variant);
   const Icon = getIcon("activity");
 
+  // Detectar formato: genérico (items[]) ou legado (chronicConditions[])
+  const isGenericFormat = data.items && Array.isArray(data.items) && data.items.length > 0;
+  const items = isGenericFormat ? data.items : [];
+  
+  // Converter formato legado para genérico
+  const legacyItems = data.chronicConditions && Array.isArray(data.chronicConditions) && data.chronicConditions.length > 0
+    ? data.chronicConditions.map((condition) => ({
+        primary: condition.name || 'N/A',
+        metadata: [
+          condition.since && { label: "Desde", value: condition.since },
+          condition.status && { label: "Status", value: condition.status },
+        ].filter(Boolean) as Array<{ label: string; value: string }>,
+      }))
+    : [];
+
+  const displayItems = isGenericFormat ? items : legacyItems;
+
   return (
     <div
       className={`h-full rounded-2xl border ${styles.border} ${styles.bg} p-4 shadow-sm`}
@@ -33,23 +50,36 @@ export function ChronicConditionsCard({
         </h3>
       </div>
       <div className="space-y-2">
-        {data.chronicConditions.map((condition, idx) => (
-          <div
-            key={idx}
-            className={`rounded-lg border ${styles.border} bg-white p-2 shadow-sm`}
-          >
-            <div className="flex items-start justify-between">
-              <span
-                className={`text-sm font-medium ${variant === "indigo" ? "text-indigo-900" : "text-gray-900"}`}
-              >
-                {condition.name}
-              </span>
+        {displayItems && displayItems.length > 0 ? (
+          displayItems.map((item, idx) => (
+            <div
+              key={idx}
+              className={`rounded-lg border ${styles.border} bg-white p-2 shadow-sm`}
+            >
+              <div className="flex items-start justify-between">
+                <span
+                  className={`text-sm font-medium ${variant === "indigo" ? "text-indigo-900" : "text-gray-900"}`}
+                >
+                  {item.primary}
+                </span>
+              </div>
+              {item.metadata && item.metadata.length > 0 && (
+                <span className="mt-0.5 block text-[10px] text-gray-500">
+                  {item.metadata.map((meta, i) => (
+                    <span key={i}>
+                      {i > 0 && ' • '}
+                      {meta.value}
+                    </span>
+                  ))}
+                </span>
+              )}
             </div>
-            <span className="mt-0.5 block text-[10px] text-gray-500">
-              {condition.status}
-            </span>
+          ))
+        ) : (
+          <div className="text-center py-4 text-sm text-gray-500">
+            Nenhum item disponível
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

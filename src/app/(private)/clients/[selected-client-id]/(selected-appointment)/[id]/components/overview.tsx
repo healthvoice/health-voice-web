@@ -8,6 +8,9 @@ import { Loader2 } from "lucide-react";
 export function Overview() {
   const { selectedRecording } = useGeneralContext();
 
+  console.log('[Overview] selectedRecording:', selectedRecording);
+  console.log('[Overview] structuredSummary raw:', selectedRecording?.structuredSummary);
+
   if (!selectedRecording) {
     return (
       <div className="flex h-64 w-full items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
@@ -22,6 +25,19 @@ export function Overview() {
   const structuredSummary = convertToAIComponentResponse(
     selectedRecording.structuredSummary,
   );
+
+  console.log('[Overview] structuredSummary converted:', structuredSummary);
+  console.log('[Overview] structuredSummary.sections:', structuredSummary?.sections);
+  console.log('[Overview] structuredSummary.sections?.length:', structuredSummary?.sections?.length);
+  
+  // Log detalhado de cada seção
+  structuredSummary?.sections?.forEach((section, index) => {
+    console.log(`[Overview] Section ${index} full:`, JSON.stringify(section, null, 2));
+    console.log(`[Overview] Section ${index}.components:`, section.components);
+    console.log(`[Overview] Section ${index}.components type:`, typeof section.components);
+    console.log(`[Overview] Section ${index}.components isArray:`, Array.isArray(section.components));
+    console.log(`[Overview] Section ${index}.components?.length:`, section.components?.length);
+  });
 
   if (!structuredSummary) {
     return (

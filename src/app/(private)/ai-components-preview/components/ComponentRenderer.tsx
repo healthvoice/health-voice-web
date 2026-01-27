@@ -29,176 +29,202 @@ interface ComponentRendererProps {
 
 // Componente que renderiza um único componente baseado no tipo
 export function ComponentRenderer({ component }: ComponentRendererProps) {
-  switch (component.type) {
+  console.log('[ComponentRenderer] Rendering component:', component.type);
+  console.log('[ComponentRenderer] Component data:', component.data);
+  console.log('[ComponentRenderer] Component full:', JSON.stringify(component, null, 2));
+  
+  // Normalizar dados para garantir que sempre seja um objeto válido
+  const normalizedData = component.data && typeof component.data === 'object' 
+    ? component.data 
+    : {};
+  
+  // Garantir que component.title existe
+  const normalizedTitle = component.title || 'Componente';
+  
+  // Garantir que component.type existe
+  if (!component.type) {
+    console.error('[ComponentRenderer] Component missing type:', component);
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-800 text-sm font-semibold">
+          Componente inválido: tipo não especificado
+        </p>
+      </div>
+    );
+  }
+  
+  try {
+    switch (component.type) {
     case "prescription_card":
       return (
         <PrescriptionCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "exams_card":
       return (
         <ExamsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "referrals_card":
       return (
         <ReferralsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "certificates_card":
       return (
         <CertificatesCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "orientations_card":
       return (
         <OrientationsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "clinical_notes_card":
       return (
         <ClinicalNotesCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "next_appointments_card":
       return (
         <NextAppointmentsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "biometrics_card":
       return (
         <BiometricsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "allergies_card":
       return (
         <AllergiesCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "chronic_conditions_card":
       return (
         <ChronicConditionsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "medications_card":
       return (
         <MedicationsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "social_history_card":
       return (
         <SocialHistoryCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "family_history_card":
       return (
         <FamilyHistoryCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "medical_history_timeline_card":
       return (
         <MedicalHistoryTimelineCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "main_diagnosis_card":
       return (
         <MainDiagnosisCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "symptoms_card":
       return (
         <SymptomsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "risk_factors_card":
       return (
         <RiskFactorsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "treatment_plan_card":
       return (
         <TreatmentPlanCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "differential_diagnosis_card":
       return (
         <DifferentialDiagnosisCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "suggested_exams_card":
       return (
         <SuggestedExamsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     case "observations_card":
       return (
         <ObservationsCard
-          title={component.title}
+          title={normalizedTitle}
           variant={component.variant as any}
-          data={component.data as any}
+          data={normalizedData as any}
         />
       );
     default:
+      console.warn('[ComponentRenderer] Unknown component type:', (component as any).type);
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-yellow-800 text-sm">
@@ -206,5 +232,20 @@ export function ComponentRenderer({ component }: ComponentRendererProps) {
           </p>
         </div>
       );
+    }
+  } catch (error: any) {
+    console.error('[ComponentRenderer] Error rendering component:', component.type, error);
+    console.error('[ComponentRenderer] Error message:', error.message);
+    console.error('[ComponentRenderer] Error stack:', error.stack);
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-800 text-sm font-semibold">
+          Erro ao renderizar componente: {component.type}
+        </p>
+        <p className="text-red-600 text-xs mt-1">
+          {error.message}
+        </p>
+      </div>
+    );
   }
 }

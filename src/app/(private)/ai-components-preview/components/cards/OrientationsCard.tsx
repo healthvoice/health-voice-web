@@ -31,17 +31,23 @@ export function OrientationsCard({
       </div>
       <div className={`rounded-2xl border ${styles.border} ${styles.bg} p-6`}>
         <ul className="space-y-3">
-          {data.orientations.map((item, idx) => (
-            <li
-              key={idx}
-              className="flex items-start gap-3 text-sm text-gray-700"
-            >
-              <CheckIcon
-                className={`mt-0.5 h-5 w-5 flex-shrink-0 ${styles.text}`}
-              />
-              {item}
+          {data.orientations && Array.isArray(data.orientations) && data.orientations.length > 0 ? (
+            data.orientations.map((item, idx) => (
+              <li
+                key={idx}
+                className="flex items-start gap-3 text-sm text-gray-700"
+              >
+                <CheckIcon
+                  className={`mt-0.5 h-5 w-5 flex-shrink-0 ${styles.text}`}
+                />
+                {item}
+              </li>
+            ))
+          ) : (
+            <li className="text-center py-4 text-sm text-gray-500">
+              Nenhuma orientação disponível
             </li>
-          ))}
+          )}
         </ul>
       </div>
     </section>

@@ -29,12 +29,13 @@ export function ReferralsCard({
         <div>
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
           <p className="text-xs text-gray-400">
-            {data.referrals.length} encaminhamento(s)
+            {data.referrals && Array.isArray(data.referrals) ? data.referrals.length : 0} encaminhamento(s)
           </p>
         </div>
       </div>
       <div className="flex flex-col gap-4">
-        {data.referrals.map((ref) => (
+        {data.referrals && Array.isArray(data.referrals) && data.referrals.length > 0 ? (
+          data.referrals.map((ref) => (
           <div
             key={ref.id}
             className={`flex flex-col justify-between gap-4 rounded-xl border ${styles.border} bg-white p-5 transition-all hover:opacity-80 sm:flex-row sm:items-start`}
@@ -70,7 +71,12 @@ export function ReferralsCard({
               <span className="text-xs text-gray-400">{ref.date}</span>
             </div>
           </div>
-        ))}
+        ))
+        ) : (
+          <div className="text-center py-8 text-sm text-gray-500">
+            Nenhum encaminhamento disponível
+          </div>
+        )}
       </div>
     </section>
   );

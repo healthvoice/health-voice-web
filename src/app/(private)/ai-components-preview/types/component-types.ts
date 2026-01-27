@@ -59,11 +59,37 @@ export interface AIComponentResponse {
   sections: AISection[];      // Array de seções (ao invés de components diretos)
 }
 
-// Tipos de dados específicos para cada componente
+// Estruturas genéricas para dados flexíveis
 
-// Prescription Card
+// Campo configurável para key-value cards
+export interface FieldConfig {
+  label: string;        // Label definido pela IA (ex: "Fit Cultural", "Tipo Sanguíneo")
+  value: string;        // Valor do campo
+  variant?: "badge" | "text" | "highlight";  // Como exibir
+  priority?: number;    // Ordem de exibição
+}
+
+// Item genérico para listas
+export interface GenericListItem {
+  id?: string | number;
+  primary: string;           // Texto principal
+  secondary?: string;         // Texto secundário
+  metadata?: Array<{          // Metadados com labels dinâmicos
+    label: string;
+    value: string;
+  }>;
+  tags?: string[];           // Tags/badges
+  status?: string;            // Status (qualquer string, não enum)
+}
+
+// Tipos de dados específicos para cada componente (mantidos para compatibilidade)
+
+// Prescription Card - Suporta formato legado e genérico
 export interface PrescriptionCardData {
-  prescriptions: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  prescriptions?: Array<{
     id: number;
     date: string;
     type: string;
@@ -76,29 +102,35 @@ export interface PrescriptionCardData {
   }>;
 }
 
-// Exams Card
+// Exams Card - Suporta formato legado e genérico
 export interface ExamsCardData {
-  exams: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  exams?: Array<{
     id: number;
     date: string;
     category: string;
     items: Array<{
       name: string;
-      priority: "Alta" | "Média" | "Normal" | "Baixa";
+      priority: string;  // Qualquer string, não mais enum
     }>;
   }>;
   totalCount?: number;
 }
 
-// Referrals Card
+// Referrals Card - Suporta formato genérico e legado
 export interface ReferralsCardData {
-  referrals: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  referrals?: Array<{
     id: number;
     date: string;
     specialty: string;
     professional: string;
     reason: string;
-    urgency: "Prioritária" | "Eletiva" | "Urgente";
+    urgency?: string;  // Qualquer string, não mais enum
   }>;
 }
 
@@ -118,40 +150,57 @@ export interface OrientationsCardData {
   orientations: string[];
 }
 
-// Clinical Notes Card
+// Clinical Notes Card - Suporta formato genérico e legado
 export interface ClinicalNotesCardData {
-  notes: string;
+  // Formato genérico (recomendado)
+  content?: string;
+  sections?: Array<{
+    title?: string;
+    content: string;
+  }>;
+  // Formato legado (compatibilidade)
+  notes?: string;
 }
 
-// Next Appointments Card
+// Next Appointments Card - Suporta formato genérico e legado
 export interface NextAppointmentsCardData {
-  appointments: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  appointments?: Array<{
     id: number;
     date: string;
-    time: string;
-    type: string;
-    doctor: string;
+    time?: string;
+    type?: string;
+    doctor?: string;
     notes?: string;
   }>;
 }
 
-// Biometrics Card
+// Biometrics Card - Suporta formato genérico e legado
 export interface BiometricsCardData {
-  personal: {
-    bloodType: string;
-    height: string;
-    weight: string;
-    bmi: string;
-    age: string;
+  // Formato genérico (recomendado) - labels definidos pela IA
+  fields?: FieldConfig[];
+  // Formato legado (compatibilidade)
+  personal?: {
+    bloodType?: string;
+    height?: string;
+    weight?: string;
+    bmi?: string;
+    age?: string;
+    [key: string]: string | undefined;  // Permite campos extras
   };
 }
 
-// Allergies Card
+// Allergies Card - Suporta formato genérico e legado
 export interface AllergiesCardData {
-  allergies: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  allergies?: Array<{
     name: string;
-    reaction: string;
-    severity: "Alta" | "Moderada" | "Baixa";
+    reaction?: string;
+    severity?: string;  // Qualquer string, não mais enum
   }>;
 }
 
@@ -164,22 +213,29 @@ export interface ChronicConditionsCardData {
   }>;
 }
 
-// Medications Card
+// Medications Card - Suporta formato genérico e legado
 export interface MedicationsCardData {
-  medications: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  medications?: Array<{
     name: string;
-    frequency: string;
-    type: "Uso Contínuo" | "SOS" | "Temporário";
+    frequency?: string;
+    type?: string;  // Qualquer string, não mais enum
   }>;
 }
 
-// Social History Card
+// Social History Card - Suporta formato genérico e legado
 export interface SocialHistoryCardData {
-  socialHistory: {
-    smoking: string;
-    alcohol: string;
-    activity: string;
-    diet: string;
+  // Formato genérico (recomendado)
+  fields?: FieldConfig[];
+  // Formato legado (compatibilidade)
+  socialHistory?: {
+    smoking?: string;
+    alcohol?: string;
+    activity?: string;
+    diet?: string;
+    [key: string]: string | undefined;  // Permite campos extras
   };
 }
 
@@ -204,22 +260,29 @@ export interface MedicalHistoryTimelineCardData {
   }>;
 }
 
-// Main Diagnosis Card
+// Main Diagnosis Card - Suporta formato genérico e legado
 export interface MainDiagnosisCardData {
-  mainCondition: string;
-  cid: string;
-  confidence: "Alta" | "Média" | "Baixa";
-  severity: "Leve" | "Moderada" | "Grave";
-  evolution: "Aguda" | "Crônica" | "Subaguda";
-  justification: string;
+  // Formato genérico (recomendado)
+  fields?: FieldConfig[];
+  content?: string;  // Para justificativa/descrição
+  // Formato legado (compatibilidade)
+  mainCondition?: string;
+  cid?: string;
+  confidence?: string;  // Qualquer string, não mais enum
+  severity?: string;  // Qualquer string, não mais enum
+  evolution?: string;  // Qualquer string, não mais enum
+  justification?: string;
 }
 
-// Symptoms Card
+// Symptoms Card - Suporta formato genérico e legado
 export interface SymptomsCardData {
-  symptoms: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  symptoms?: Array<{
     name: string;
-    frequency: "Frequente" | "Ocasional" | "Raro" | "Constante";
-    severity: "Leve" | "Moderada" | "Grave";
+    frequency?: string;  // Qualquer string, não mais enum
+    severity?: string;  // Qualquer string, não mais enum
   }>;
 }
 
@@ -241,20 +304,26 @@ export interface TreatmentPlanCardData {
   };
 }
 
-// Differential Diagnosis Card
+// Differential Diagnosis Card - Suporta formato genérico e legado
 export interface DifferentialDiagnosisCardData {
-  differentials: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  differentials?: Array<{
     name: string;
-    probability: "Muito Alta" | "Alta" | "Média" | "Baixa" | "Muito Baixa";
-    excluded: boolean;
+    probability?: string;  // Qualquer string, não mais enum
+    excluded?: boolean;
   }>;
 }
 
-// Suggested Exams Card
+// Suggested Exams Card - Suporta formato genérico e legado
 export interface SuggestedExamsCardData {
-  suggestedExams: Array<{
+  // Formato genérico (recomendado)
+  items?: GenericListItem[];
+  // Formato legado (compatibilidade)
+  suggestedExams?: Array<{
     name: string;
-    priority: "Alta" | "Média" | "Baixa";
+    priority?: string;  // Qualquer string, não mais enum
   }>;
 }
 
