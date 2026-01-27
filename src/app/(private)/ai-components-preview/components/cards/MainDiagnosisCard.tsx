@@ -1,6 +1,5 @@
 "use client";
 
-import { Activity, AlertTriangle, Clock, FileText, Stethoscope } from "lucide-react";
 import { MainDiagnosisCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
@@ -24,7 +23,7 @@ export function MainDiagnosisCard({
 
   // Detectar formato: genérico (fields[]) ou legado (mainCondition, etc.)
   const isGenericFormat = data.fields && Array.isArray(data.fields) && data.fields.length > 0;
-  const fields = isGenericFormat 
+  const fields = Array.isArray(data.fields)
     ? data.fields.sort((a, b) => (a.priority || 0) - (b.priority || 0))
     : [];
 

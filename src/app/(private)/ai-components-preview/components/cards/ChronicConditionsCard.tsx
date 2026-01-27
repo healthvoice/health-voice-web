@@ -1,7 +1,6 @@
 "use client";
 
-import { Activity } from "lucide-react";
-import { ChronicConditionsCardData, GenericListItem } from "../../types/component-types";
+import { ChronicConditionsCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface ChronicConditionsCardProps {
@@ -19,8 +18,8 @@ export function ChronicConditionsCard({
   const Icon = getIcon("activity");
 
   // Detectar formato: genérico (items[]) ou legado (chronicConditions[])
-  const isGenericFormat = data.items && Array.isArray(data.items) && data.items.length > 0;
-  const items = isGenericFormat ? data.items : [];
+  const isGenericFormat = 'items' in data && Array.isArray(data.items) && data.items.length > 0;
+  const items = ('items' in data && Array.isArray(data.items)) ? data.items : [];
   
   // Converter formato legado para genérico
   const legacyItems = data.chronicConditions && Array.isArray(data.chronicConditions) && data.chronicConditions.length > 0
@@ -65,7 +64,7 @@ export function ChronicConditionsCard({
               </div>
               {item.metadata && item.metadata.length > 0 && (
                 <span className="mt-0.5 block text-[10px] text-gray-500">
-                  {item.metadata.map((meta, i) => (
+                  {item.metadata.map((meta: { label: string; value: string }, i: number) => (
                     <span key={i}>
                       {i > 0 && ' • '}
                       {meta.value}

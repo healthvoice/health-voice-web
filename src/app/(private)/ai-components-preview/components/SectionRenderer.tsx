@@ -1,6 +1,6 @@
 "use client";
 
-import { AISection, AIComponent } from "../types/component-types";
+import { AIComponent, AISection } from "../types/component-types";
 import { ComponentRenderer } from "./ComponentRenderer";
 
 interface SectionRendererProps {
@@ -46,26 +46,26 @@ const COMPACT_COMPONENTS = [
 function getComponentItemCount(component: AIComponent): number {
   const data = component.data || {};
   
-  // Tentar diferentes estruturas de dados
-  if (data.items && Array.isArray(data.items)) return data.items.length;
-  if (data.fields && Array.isArray(data.fields)) return data.fields.length;
-  if (data.prescriptions && Array.isArray(data.prescriptions)) {
+  // Tentar diferentes estruturas de dados usando type guards seguros
+  if ('items' in data && Array.isArray(data.items)) return data.items.length;
+  if ('fields' in data && Array.isArray(data.fields)) return data.fields.length;
+  if ('prescriptions' in data && Array.isArray(data.prescriptions)) {
     return data.prescriptions.reduce((acc: number, p: any) => acc + (p.items?.length || 0), 0);
   }
-  if (data.exams && Array.isArray(data.exams)) {
+  if ('exams' in data && Array.isArray(data.exams)) {
     return data.exams.reduce((acc: number, e: any) => acc + (e.items?.length || 0), 0);
   }
-  if (data.appointments && Array.isArray(data.appointments)) return data.appointments.length;
-  if (data.symptoms && Array.isArray(data.symptoms)) return data.symptoms.length;
-  if (data.allergies && Array.isArray(data.allergies)) return data.allergies.length;
-  if (data.orientations && Array.isArray(data.orientations)) return data.orientations.length;
-  if (data.referrals && Array.isArray(data.referrals)) return data.referrals.length;
-  if (data.certificates && Array.isArray(data.certificates)) return data.certificates.length;
-  if (data.riskFactors && Array.isArray(data.riskFactors)) return data.riskFactors.length;
-  if (data.familyHistory && Array.isArray(data.familyHistory)) return data.familyHistory.length;
-  if (data.differentials && Array.isArray(data.differentials)) return data.differentials.length;
-  if (data.suggestedExams && Array.isArray(data.suggestedExams)) return data.suggestedExams.length;
-  if (data.personal && typeof data.personal === 'object') {
+  if ('appointments' in data && Array.isArray(data.appointments)) return data.appointments.length;
+  if ('symptoms' in data && Array.isArray(data.symptoms)) return data.symptoms.length;
+  if ('allergies' in data && Array.isArray(data.allergies)) return data.allergies.length;
+  if ('orientations' in data && Array.isArray(data.orientations)) return data.orientations.length;
+  if ('referrals' in data && Array.isArray(data.referrals)) return data.referrals.length;
+  if ('certificates' in data && Array.isArray(data.certificates)) return data.certificates.length;
+  if ('riskFactors' in data && Array.isArray(data.riskFactors)) return data.riskFactors.length;
+  if ('familyHistory' in data && Array.isArray(data.familyHistory)) return data.familyHistory.length;
+  if ('differentials' in data && Array.isArray(data.differentials)) return data.differentials.length;
+  if ('suggestedExams' in data && Array.isArray(data.suggestedExams)) return data.suggestedExams.length;
+  if ('personal' in data && typeof data.personal === 'object') {
     return Object.values(data.personal).filter(v => v).length;
   }
   
@@ -107,7 +107,11 @@ function getComponentSpan(component: AIComponent, totalComponents: number): numb
     if (itemCount >= 3) {
       // Verificar se tem muitos tags/metadata
       const data = component.data || {};
-      const items = data.items || data.symptoms || [];
+      const items = ('items' in data && Array.isArray(data.items)) 
+        ? data.items 
+        : ('symptoms' in data && Array.isArray(data.symptoms))
+        ? data.symptoms
+        : [];
       const hasManyTags = items.some((item: any) => 
         (item.metadata && item.metadata.length > 2) || 
         (item.tags && item.tags.length > 2)

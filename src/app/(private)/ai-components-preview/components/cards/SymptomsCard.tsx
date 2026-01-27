@@ -1,6 +1,5 @@
 "use client";
 
-import { Activity } from "lucide-react";
 import { SymptomsCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
@@ -20,7 +19,7 @@ export function SymptomsCard({
 
   // Detectar formato: genérico (items[]) ou legado (symptoms[])
   const isGenericFormat = data.items && Array.isArray(data.items) && data.items.length > 0;
-  const items = isGenericFormat ? data.items : [];
+  const items = Array.isArray(data.items) ? data.items : [];
   
   // Converter formato legado para genérico
   const legacyItems = data.symptoms ? data.symptoms.map((symptom) => ({
@@ -37,7 +36,7 @@ export function SymptomsCard({
   const itemCount = displayItems.length;
   const hasManyTags = displayItems.some(item => 
     (item.metadata && item.metadata.length > 1) || 
-    (item.tags && item.tags.length > 1)
+    ('tags' in item && item.tags && item.tags.length > 1)
   );
   
   return (
@@ -65,17 +64,17 @@ export function SymptomsCard({
               <div className="flex items-center gap-3">
                 <div className="h-2 w-2 rounded-full bg-rose-400" />
                 <span className="font-medium text-gray-700">{item.primary}</span>
-                {item.secondary && (
+                {'secondary' in item && item.secondary && (
                   <span className="text-xs text-gray-500">{item.secondary}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {item.metadata && item.metadata.length > 0 && item.metadata.map((meta, i) => (
+                {item.metadata && item.metadata.length > 0 && item.metadata.map((meta: { label: string; value: string }, i: number) => (
                   <span key={i} className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-500">
                     {meta.value}
                   </span>
                 ))}
-                {item.tags && item.tags.map((tag, i) => (
+                {'tags' in item && item.tags && item.tags.map((tag: string, i: number) => (
                   <span key={i} className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-500">
                     {tag}
                   </span>

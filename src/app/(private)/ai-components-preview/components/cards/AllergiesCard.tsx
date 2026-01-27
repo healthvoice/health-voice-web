@@ -1,6 +1,5 @@
 "use client";
 
-import { AlertCircle } from "lucide-react";
 import { AllergiesCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
@@ -20,7 +19,7 @@ export function AllergiesCard({
 
   // Detectar formato para calcular item count
   const isGenericFormat = data.items && Array.isArray(data.items) && data.items.length > 0;
-  const items = isGenericFormat ? data.items : [];
+  const items = Array.isArray(data.items) ? data.items : [];
   const legacyItems = data.allergies && Array.isArray(data.allergies) ? data.allergies : [];
   const itemCount = isGenericFormat ? items.length : legacyItems.length;
   
@@ -68,7 +67,7 @@ export function AllergiesCard({
           return displayItems.map((item, idx) => {
             const severity = item.metadata?.find((m: { label: string; value: string }) => 
               m.label.toLowerCase().includes('severidade')
-            )?.value || item.status || '';
+            )?.value || ('status' in item ? item.status : '') || '';
             
             return (
               <div

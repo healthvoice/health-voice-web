@@ -1,7 +1,6 @@
 "use client";
 
-import { Pill } from "lucide-react";
-import { MedicationsCardData, GenericListItem } from "../../types/component-types";
+import { MedicationsCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface MedicationsCardProps {
@@ -20,7 +19,7 @@ export function MedicationsCard({
 
   // Detectar formato: genérico (items[]) ou legado (medications[])
   const isGenericFormat = data.items && Array.isArray(data.items) && data.items.length > 0;
-  const items = isGenericFormat ? data.items : [];
+  const items = Array.isArray(data.items) ? data.items : [];
   
   // Converter formato legado para genérico
   const legacyItems = data.medications && Array.isArray(data.medications)

@@ -1,6 +1,5 @@
 "use client";
 
-import { User } from "lucide-react";
 import { BiometricsCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
@@ -20,7 +19,7 @@ export function BiometricsCard({
 
   // Detectar formato: genérico (fields[]) ou legado (personal{})
   const isGenericFormat = data.fields && Array.isArray(data.fields) && data.fields.length > 0;
-  const fields = isGenericFormat 
+  const fields = Array.isArray(data.fields)
     ? data.fields.sort((a, b) => (a.priority || 0) - (b.priority || 0))
     : [];
 

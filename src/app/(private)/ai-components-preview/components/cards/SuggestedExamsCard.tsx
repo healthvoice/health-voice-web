@@ -1,7 +1,6 @@
 "use client";
 
-import { Beaker } from "lucide-react";
-import { SuggestedExamsCardData, GenericListItem } from "../../types/component-types";
+import { SuggestedExamsCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface SuggestedExamsCardProps {
@@ -49,7 +48,7 @@ export function SuggestedExamsCard({
           displayItems.map((item, idx) => {
             const priority = item.metadata?.find((m: { label: string; value: string }) => 
               m.label.toLowerCase().includes('prioridade')
-            )?.value || item.status || '';
+            )?.value || ('status' in item ? item.status : '') || '';
             
             return (
               <div

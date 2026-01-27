@@ -1,6 +1,5 @@
 "use client";
 
-import { Activity, Cigarette, Users, Wine } from "lucide-react";
 import { SocialHistoryCardData } from "../../types/component-types";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
@@ -20,7 +19,7 @@ export function SocialHistoryCard({
 
   // Detectar formato: genérico (fields[]) ou legado (socialHistory{})
   const isGenericFormat = data.fields && Array.isArray(data.fields) && data.fields.length > 0;
-  const fields = isGenericFormat 
+  const fields = Array.isArray(data.fields)
     ? data.fields.sort((a, b) => (a.priority || 0) - (b.priority || 0))
     : [];
 
