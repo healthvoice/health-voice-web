@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef, useMemo } from "react";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useApiContext } from "@/context/ApiContext";
 import { DynamicComponentRenderer } from "@/app/(private)/ai-components-preview/components/DynamicComponentRenderer";
@@ -10,12 +10,16 @@ import { OVERVIEW_CONTENT_ID } from "../utils/export-medical-record-pdf";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
+export interface OverviewHandle {
+  getResponse: () => AIComponentResponse | null;
+}
+
 interface OverviewProps {
   onEditStart?: () => void;
   onEditEnd?: () => void;
 }
 
-export function Overview({ onEditStart, onEditEnd }: OverviewProps) {
+export const Overview = forwardRef<OverviewHandle, OverviewProps>(function Overview({ onEditStart, onEditEnd }, ref) {
   const { selectedRecording, selectedClient, setSelectedRecording } =
     useGeneralContext();
   const { PutAPI } = useApiContext();
@@ -23,11 +27,23 @@ export function Overview({ onEditStart, onEditEnd }: OverviewProps) {
   const [isSaving, setIsSaving] = useState(false);
   const responseRef = useRef<AIComponentResponse | null>(null);
 
-  const initialSummary = selectedRecording
-    ? convertToAIComponentResponse(selectedRecording.structuredSummary)
-    : null;
+  const initialSummary = useMemo(
+    () =>
+      selectedRecording
+        ? convertToAIComponentResponse(selectedRecording.structuredSummary)
+        : null,
+    [selectedRecording],
+  );
   const currentResponse = response ?? initialSummary;
   responseRef.current = currentResponse ?? null;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getResponse: () => responseRef.current,
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!selectedRecording) return;
@@ -131,4 +147,4 @@ export function Overview({ onEditStart, onEditEnd }: OverviewProps) {
       />
     </div>
   );
-}
+});

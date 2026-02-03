@@ -1,5 +1,7 @@
+import type { AIComponentResponse } from "@/app/(private)/ai-components-preview/types/component-types";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
+import { generateMedicalRecordPdf, generateOverviewPdf } from "./pdfOverviewGenerator";
 
 const MEDICAL_RECORD_CONTENT_ID = "medical-record-content";
 export const OVERVIEW_CONTENT_ID = "overview-content";
@@ -151,17 +153,43 @@ async function exportContentToPdf(
 }
 
 /**
- * Exporta o HTML do prontuário médico para PDF.
+ * Exporta o prontuário médico para PDF.
+ * Se `medicalRecordData` for passado, usa geração programática (jsPDF + autoTable, estilo Legisai):
+ * sem sombras, arquivo leve e quebras de página sem cortar cards.
+ * Caso contrário, usa html2canvas no DOM (comportamento anterior).
  */
 export async function exportMedicalRecordToPdf(
+  medicalRecordData?: AIComponentResponse | null,
   filename?: string,
 ): Promise<void> {
+  if (
+    medicalRecordData?.sections &&
+    Array.isArray(medicalRecordData.sections) &&
+    medicalRecordData.sections.length > 0
+  ) {
+    generateMedicalRecordPdf(medicalRecordData, filename);
+    return;
+  }
   return exportContentToPdf(MEDICAL_RECORD_CONTENT_ID, "prontuario", filename);
 }
 
 /**
- * Exporta o HTML do resumo geral (overview) para PDF.
+ * Exporta o resumo geral (overview) para PDF.
+ * Se `overviewData` for passado, usa geração programática (jsPDF + autoTable, estilo Legisai):
+ * sem sombras, arquivo leve e quebras de página sem cortar cards.
+ * Caso contrário, usa html2canvas no DOM (comportamento anterior).
  */
-export async function exportOverviewToPdf(filename?: string): Promise<void> {
+export async function exportOverviewToPdf(
+  overviewData?: AIComponentResponse | null,
+  filename?: string,
+): Promise<void> {
+  if (
+    overviewData?.sections &&
+    Array.isArray(overviewData.sections) &&
+    overviewData.sections.length > 0
+  ) {
+    generateOverviewPdf(overviewData, filename);
+    return;
+  }
   return exportContentToPdf(OVERVIEW_CONTENT_ID, "resumo-geral", filename);
 }

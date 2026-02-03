@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from "react";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useApiContext } from "@/context/ApiContext";
 import { DynamicComponentRenderer } from "@/app/(private)/ai-components-preview/components/DynamicComponentRenderer";
@@ -9,12 +9,16 @@ import { convertToAIComponentResponse } from "../utils/summary-converter";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
+export interface MedicalRecordHandle {
+  getResponse: () => AIComponentResponse | null;
+}
+
 interface MedicalRecordProps {
   onEditStart?: () => void;
   onEditEnd?: () => void;
 }
 
-export function MedicalRecord({ onEditStart, onEditEnd }: MedicalRecordProps) {
+export const MedicalRecord = forwardRef<MedicalRecordHandle, MedicalRecordProps>(function MedicalRecord({ onEditStart, onEditEnd }, ref) {
   const { selectedRecording, selectedClient, setSelectedRecording } =
     useGeneralContext();
   const { PutAPI } = useApiContext();
@@ -22,11 +26,23 @@ export function MedicalRecord({ onEditStart, onEditEnd }: MedicalRecordProps) {
   const [isSaving, setIsSaving] = useState(false);
   const responseRef = useRef<AIComponentResponse | null>(null);
 
-  const initialSummary = selectedRecording
-    ? convertToAIComponentResponse(selectedRecording.specificSummary)
-    : null;
+  const initialSummary = useMemo(
+    () =>
+      selectedRecording
+        ? convertToAIComponentResponse(selectedRecording.specificSummary)
+        : null,
+    [selectedRecording],
+  );
   const currentResponse = response ?? initialSummary;
   responseRef.current = currentResponse ?? null;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getResponse: () => responseRef.current,
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!selectedRecording) return;
@@ -131,4 +147,4 @@ export function MedicalRecord({ onEditStart, onEditEnd }: MedicalRecordProps) {
       />
     </div>
   );
-}
+});

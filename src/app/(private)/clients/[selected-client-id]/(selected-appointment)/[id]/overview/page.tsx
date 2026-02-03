@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Overview } from "../components/overview";
+import { Overview, type OverviewHandle } from "../components/overview";
 import { exportOverviewToPdf } from "../utils/export-medical-record-pdf";
 
 export default function OverviewPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [editingCount, setEditingCount] = useState(0);
+  const overviewRef = useRef<OverviewHandle | null>(null);
 
   const handleEditStart = useCallback(() => setEditingCount((c) => c + 1), []);
   const handleEditEnd = useCallback(
@@ -25,7 +26,8 @@ export default function OverviewPage() {
     }
     setIsExporting(true);
     try {
-      await exportOverviewToPdf();
+      const data = overviewRef.current?.getResponse() ?? null;
+      await exportOverviewToPdf(data);
       toast.success("PDF exportado com sucesso!");
     } catch (err) {
       const message =
@@ -47,9 +49,26 @@ export default function OverviewPage() {
             Resumo estruturado da consulta com componentes gerados pela IA.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={handleExportPdf}
+          disabled={isExporting}
+          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FileDown className="h-4 w-4" />
+          )}
+          {isExporting ? "Exportando..." : "Exportar em PDF"}
+        </button>
       </div>
       <div className="min-w-0 overflow-x-hidden">
-        <Overview onEditStart={handleEditStart} onEditEnd={handleEditEnd} />
+        <Overview
+          ref={overviewRef}
+          onEditStart={handleEditStart}
+          onEditEnd={handleEditEnd}
+        />
       </div>
       <div className="flex w-full justify-end border-t border-gray-200 pt-6">
         <button
