@@ -31,6 +31,7 @@ interface SessionContextValue {
   loading: boolean;
   availableRecording: number;
   totalRecording: number;
+  isTrial: boolean;
   handleGetProfile: (forceRefresh?: boolean) => Promise<void>;
   handleGetAvailableRecording: () => Promise<void>;
   checkSession: (forceRefresh?: boolean) => Promise<boolean>;
@@ -57,6 +58,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<User | null>(null);
   const [availableRecording, setAvailableRecording] = useState(0);
   const [totalRecording, setTotalRecording] = useState(0);
+  const [isTrial, setIsTrial] = useState(false);
 
   const isLoadingProfile = useRef(false);
   const sessionCheckPromise = useRef<Promise<boolean> | null>(null);
@@ -179,6 +181,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setProfile(null);
       setAvailableRecording(0);
       setTotalRecording(0);
+      setIsTrial(false);
       invalidateSessionCache();
 
       try {
@@ -204,6 +207,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setProfile(null);
       setAvailableRecording(0);
       setTotalRecording(0);
+      setIsTrial(false);
       invalidateSessionCache();
     }
   }, [invalidateSessionCache]);
@@ -287,18 +291,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const handleGetAvailableRecording = useCallback(async () => {
     try {
       const response = await GetAPI("/signature/available-recording", true);
-
+      console.log(response.body)
       if (response.status === 200) {
         setAvailableRecording(response.body.available);
         setTotalRecording(response.body.total);
+        setIsTrial(response.body.isTrial ?? false);
       } else {
         setAvailableRecording(0);
         setTotalRecording(0);
+        setIsTrial(false);
       }
     } catch (error) {
       console.error("❌ Erro ao buscar gravações:", error);
       setAvailableRecording(0);
       setTotalRecording(0);
+      setIsTrial(false);
     }
   }, [GetAPI]);
 
@@ -359,6 +366,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         availableRecording,
         handleGetAvailableRecording,
         totalRecording,
+        isTrial,
         checkSession,
         clearSession,
         forceSignOut,

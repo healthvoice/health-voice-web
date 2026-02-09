@@ -11,6 +11,7 @@ import { RecordingsChart } from "./components/recordings-chart";
 import { UpcomingMeetings } from "./components/upcoming-meetings";
 import { UpcomingReminders } from "./components/upcoming-reminders";
 import { CompleteRegistrationModal } from "./components/complete-registration-modal";
+import { TrialAppModal } from "./components/trial-app-modal";
 
 // Helper para formatar data para API (YYYY-MM-DD)
 const formatDateForAPI = (date: Date): string => {
@@ -235,6 +236,7 @@ export default function HomePage() {
       </div>
 
       <CompleteRegistrationModal />
+      <TrialAppModal />
     </div>
   );
 }

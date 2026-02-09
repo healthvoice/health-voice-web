@@ -1,15 +1,26 @@
 "use client";
 
-import { FileDown, Loader2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { FileDown, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Overview, type OverviewHandle } from "../components/overview";
 import { exportOverviewToPdf } from "../utils/export-medical-record-pdf";
+import { PersonalizationModal } from "../components/personalization-modal";
 
 export default function OverviewPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [editingCount, setEditingCount] = useState(0);
+  const [isPersonalizationModalOpen, setIsPersonalizationModalOpen] = useState(false);
   const overviewRef = useRef<OverviewHandle | null>(null);
+
+  // Abrir modal quando entrar na página (apenas uma vez)
+  useEffect(() => {
+    const hasSeenModal = sessionStorage.getItem("hasSeenPersonalizationModal-resumo");
+    if (!hasSeenModal) {
+      setIsPersonalizationModalOpen(true);
+      sessionStorage.setItem("hasSeenPersonalizationModal-resumo", "true");
+    }
+  }, []);
 
   const handleEditStart = useCallback(() => setEditingCount((c) => c + 1), []);
   const handleEditEnd = useCallback(
@@ -49,19 +60,29 @@ export default function OverviewPage() {
             Resumo estruturado da consulta com componentes gerados pela IA.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleExportPdf}
-          disabled={isExporting}
-          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
-        >
-          {isExporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FileDown className="h-4 w-4" />
-          )}
-          {isExporting ? "Exportando..." : "Exportar em PDF"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsPersonalizationModalOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 shadow-sm transition hover:bg-blue-100"
+          >
+            <Sparkles className="h-4 w-4" />
+            Personalizar Resumo
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={isExporting}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            {isExporting ? "Exportando..." : "Exportar em PDF"}
+          </button>
+        </div>
       </div>
       <div className="min-w-0 overflow-x-hidden">
         <Overview
@@ -85,6 +106,12 @@ export default function OverviewPage() {
           {isExporting ? "Exportando..." : "Exportar em PDF"}
         </button>
       </div>
+
+      <PersonalizationModal
+        isOpen={isPersonalizationModalOpen}
+        onClose={() => setIsPersonalizationModalOpen(false)}
+        type="resumo"
+      />
     </div>
   );
 }

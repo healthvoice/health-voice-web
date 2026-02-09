@@ -12,6 +12,7 @@ export function useNotifications(options?: { poll?: boolean }) {
   const [pages, setPages] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.opened).length;
@@ -53,6 +54,23 @@ export function useNotifications(options?: { poll?: boolean }) {
     [PutAPI],
   );
 
+  const markAllAsRead = useCallback(async () => {
+    setMarkingAllAsRead(true);
+    try {
+      const { status } = await PutAPI(
+        `notification/mark-all-as-read`,
+        {},
+        true,
+      );
+      if (status !== 200) return;
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, opened: true })),
+      );
+    } finally {
+      setMarkingAllAsRead(false);
+    }
+  }, [PutAPI]);
+
   useEffect(() => {
     fetchNotifications(1);
   }, [fetchNotifications]);
@@ -68,9 +86,11 @@ export function useNotifications(options?: { poll?: boolean }) {
     pages,
     page,
     loading,
+    markingAllAsRead,
     error,
     unreadCount,
     fetchNotifications,
     markAsRead,
+    markAllAsRead,
   };
 }
