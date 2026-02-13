@@ -43,10 +43,10 @@ export default function OverviewPage() {
       <div className="flex w-full min-w-0 items-center justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold break-words text-gray-900">
-            Resumo Geral
+            Insights
           </h1>
           <p className="text-sm break-words text-gray-500">
-            Resumo estruturado da gravação com componentes gerados pela IA.
+            Insights estruturado da gravação com componentes gerados pela IA.
           </p>
         </div>
         <div className="flex items-center gap-3">

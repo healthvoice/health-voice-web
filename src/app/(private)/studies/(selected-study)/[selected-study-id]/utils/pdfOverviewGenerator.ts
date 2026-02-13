@@ -415,9 +415,9 @@ export function generateOverviewPdf(
   filename?: string,
 ): void {
   const doc = new jsPDF("p", "mm", "a4");
-  buildPdfContent(doc, data, { defaultTitle: "Resumo Geral" });
+  buildPdfContent(doc, data, { defaultTitle: "Insights" });
   const name =
     filename ??
-    `resumo-geral-${new Date().toISOString().slice(0, 10)}.pdf`;
+    `insights-${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(name);
 }

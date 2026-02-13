@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef, useMemo } from "react";
-import { useGeneralContext } from "@/context/GeneralContext";
-import { useApiContext } from "@/context/ApiContext";
-import { trackAction, UserActionType } from "@/services/actionTrackingService";
-import { handleApiError } from "@/utils/error-handler";
 import { DynamicComponentRenderer } from "@/app/(private)/ai-components-preview/components/core/DynamicComponentRenderer";
 import type { AIComponentResponse } from "@/app/(private)/ai-components-preview/types/component-types";
-import { convertToAIComponentResponse } from "../utils/summary-converter";
-import { OVERVIEW_CONTENT_ID } from "../utils/export-medical-record-pdf";
+import { useApiContext } from "@/context/ApiContext";
+import { useGeneralContext } from "@/context/GeneralContext";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
+import { handleApiError } from "@/utils/error-handler";
 import { Loader2 } from "lucide-react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { OVERVIEW_CONTENT_ID } from "../utils/export-medical-record-pdf";
+import { convertToAIComponentResponse } from "../utils/summary-converter";
 
 export interface OverviewHandle {
   getResponse: () => AIComponentResponse | null;
@@ -102,7 +102,7 @@ export const Overview = forwardRef<OverviewHandle, OverviewProps>(function Overv
                 recordingId: selectedRecording.id,
                 metadata: {
                   screen: 'overview',
-                  screenName: 'Resumo Geral',
+                  screenName: 'Insights',
                 },
               },
               PostAPI

@@ -1,15 +1,15 @@
 "use client";
 
+import { useApiContext } from "@/context/ApiContext";
+import { useGeneralContext } from "@/context/GeneralContext";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { FileDown, Loader2, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Overview, type OverviewHandle } from "../components/overview";
-import { exportOverviewToPdf } from "../utils/export-medical-record-pdf";
 import { PersonalizationModal } from "../components/personalization-modal";
-import { useApiContext } from "@/context/ApiContext";
-import { useGeneralContext } from "@/context/GeneralContext";
-import { trackAction, UserActionType } from "@/services/actionTrackingService";
+import { exportOverviewToPdf } from "../utils/export-medical-record-pdf";
 
 export default function OverviewPage() {
   const [isExporting, setIsExporting] = useState(false);
@@ -32,14 +32,14 @@ export default function OverviewPage() {
   // Tracking quando a página é visualizada (pathname garante disparo a cada acesso à tela)
   useEffect(() => {
     if (selectedRecording?.id) {
-      console.log('[Tracking] Disparando SCREEN_VIEWED: overview (Resumo Geral)');
+      console.log('[Tracking] Disparando SCREEN_VIEWED: overview (Insights)');
       trackAction(
         {
           actionType: UserActionType.SCREEN_VIEWED,
           recordingId: selectedRecording.id,
           metadata: {
             screen: 'overview',
-            screenName: 'Resumo Geral',
+            screenName: 'Insights',
             recordingId: selectedRecording.id,
           },
         },
@@ -99,7 +99,7 @@ export default function OverviewPage() {
       <div className="flex w-full min-w-0 items-center justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold break-words text-gray-900">
-            Resumo Geral
+            Insights
           </h1>
           <p className="text-sm break-words text-gray-500">
             Resumo estruturado da consulta com componentes gerados pela IA.
@@ -112,7 +112,7 @@ export default function OverviewPage() {
             className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 shadow-sm transition hover:bg-blue-100"
           >
             <Sparkles className="h-4 w-4" />
-            Personalizar Resumo
+            Personalizar Insights
           </button>
           <button
             type="button"
