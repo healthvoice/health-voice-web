@@ -1,6 +1,7 @@
 "use client";
 
 import { BiometricsCardData } from "../../types/component-types";
+import { TruncatedTooltip } from "../core/TruncatedTooltip";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface BiometricsCardProps {
@@ -23,53 +24,65 @@ export function BiometricsCard({
     ? data.fields.sort((a, b) => (a.priority || 0) - (b.priority || 0))
     : [];
 
-  // Formato legado: converter personal{} para fields[]
-  const legacyFields = data.personal ? [
-    data.personal.bloodType && { label: "Tipo Sanguíneo", value: data.personal.bloodType, variant: "badge" as const, priority: 1 },
-    data.personal.bmi && { label: "IMC", value: data.personal.bmi, priority: 2 },
-    (data.personal.weight || data.personal.height) && { 
-      label: "Peso / Altura", 
-      value: `${data.personal.weight || '-'} / ${data.personal.height || '-'}`, 
-      priority: 3 
-    },
-    data.personal.age && { label: "Idade", value: data.personal.age, priority: 4 },
-  ].filter(Boolean) as typeof fields : [];
+  // Converter formato legado para genérico
+  const legacyFields = data.personal
+    ? [
+        data.personal.bloodType
+          ? { label: "Tipo Sanguíneo", value: data.personal.bloodType, variant: "badge" as const, priority: 1 }
+          : null,
+        data.personal.bmi
+          ? { label: "IMC", value: data.personal.bmi, priority: 2 }
+          : null,
+        data.personal.weight || data.personal.height
+          ? {
+              label: "Peso / Altura",
+              value: `${data.personal.weight || "—"} / ${data.personal.height || "—"}`,
+              priority: 3,
+            }
+          : null,
+        data.personal.age
+          ? { label: "Idade", value: data.personal.age, priority: 4 }
+          : null,
+      ].filter(Boolean) as typeof fields
+    : [];
 
   const displayFields = isGenericFormat ? fields : legacyFields;
 
   return (
     <div
-      className={`h-full w-full max-w-[500px] min-w-0 overflow-hidden rounded-2xl border ${styles.border} bg-white p-4 shadow-sm`}
+      className={`h-full w-full overflow-hidden rounded-2xl border ${styles.border} bg-white shadow-sm flex flex-col`}
     >
-      <div className="mb-4 flex items-center gap-3 min-w-0">
+      {/* Header */}
+      <div className={`flex items-center gap-3 px-5 py-4 border-b ${styles.border}`}>
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles.iconBg} ${styles.iconText}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${styles.iconBg} ${styles.iconText}`}
         >
           <Icon className="h-5 w-5" />
         </div>
-        <h3 className="font-semibold text-gray-900 break-words min-w-0">{title}</h3>
+        <TruncatedTooltip content={title}>
+          <h3 className="font-semibold text-gray-900 leading-snug truncate">{title}</h3>
+        </TruncatedTooltip>
       </div>
-      <div className="space-y-3 min-w-0">
+
+      {/* Content */}
+      <div className="flex flex-col p-5">
         {displayFields.length > 0 ? (
-          displayFields.map((field, idx) => {
-            const isLast = idx === displayFields.length - 1;
-            const showBorder = !isLast;
-            
-            return (
-              <div 
+          <div className="flex flex-col divide-y divide-gray-50">
+            {displayFields.map((field, idx) => (
+              <div
                 key={idx}
-                className={`flex items-start gap-4 min-w-0 overflow-hidden ${showBorder ? 'border-b border-gray-50 pb-3' : ''} ${idx === 0 && !isGenericFormat ? 'border-t border-gray-50 pt-2' : ''}`}
+                className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
               >
-                <span className="text-sm text-gray-500 min-w-[140px] flex-shrink-0 font-medium">
+                <span className="text-sm text-gray-500 font-medium shrink-0">
                   {field.label}
                 </span>
-                <div className="flex-1 text-right min-w-0 overflow-hidden">
+                <div className="flex-1 flex justify-end min-w-0">
                   {field.variant === "badge" ? (
-                    <span className="inline-block rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600 break-words">
+                    <span className="rounded-md bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600 whitespace-nowrap">
                       {field.value}
                     </span>
                   ) : field.variant === "highlight" ? (
-                    <span className={`text-sm font-bold ${styles.text} break-words`}>
+                    <span className={`text-sm font-bold ${styles.text} break-words text-right`}>
                       {field.value}
                     </span>
                   ) : (
@@ -79,10 +92,10 @@ export function BiometricsCard({
                   )}
                 </div>
               </div>
-            );
-          })
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-4 text-sm text-gray-500">
+          <div className="py-6 text-center text-sm text-gray-400">
             Dados não disponíveis
           </div>
         )}

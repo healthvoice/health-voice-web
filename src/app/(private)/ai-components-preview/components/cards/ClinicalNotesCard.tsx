@@ -1,7 +1,7 @@
 "use client";
 
-import { FileText } from "lucide-react";
 import { ClinicalNotesCardData } from "../../types/component-types";
+import { TruncatedTooltip } from "../core/TruncatedTooltip";
 import { getIcon, getVariantStyles } from "../../utils/icon-mapper";
 
 interface ClinicalNotesCardProps {
@@ -18,44 +18,57 @@ export function ClinicalNotesCard({
   const styles = getVariantStyles(variant);
   const Icon = getIcon("file-text");
 
-  // Detectar formato: genérico (content/sections) ou legado (notes)
-  const content = data.content || data.notes || '';
+  const content = data.content || data.notes || "";
   const sections = data.sections || [];
 
   return (
-    <section className="w-full max-w-full min-w-0 overflow-hidden">
-      <div className="mb-4 flex items-center gap-3 min-w-0">
+    <div
+      className={`h-full w-full overflow-hidden rounded-2xl border ${styles.border} bg-white shadow-sm flex flex-col`}
+    >
+      {/* Header */}
+      <div className={`flex items-center gap-3 px-5 py-4 border-b ${styles.border}`}>
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${styles.gradientFrom} ${styles.gradientTo} text-white shadow-md ${styles.shadow}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${styles.iconBg} ${styles.iconText}`}
         >
           <Icon className="h-5 w-5" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 break-words min-w-0">{title}</h2>
+        <TruncatedTooltip content={title}>
+          <h3 className="font-semibold text-gray-900 leading-snug truncate">{title}</h3>
+        </TruncatedTooltip>
       </div>
-      <div className={`rounded-2xl border border-gray-200 bg-gray-50 p-6 min-w-0 overflow-hidden`}>
+
+      {/* Content */}
+      <div className="p-5 flex-1">
         {sections.length > 0 ? (
-          <div className="space-y-4 min-w-0">
+          <div className="flex flex-col gap-4">
             {sections.map((section, idx) => (
-              <div key={idx} className="min-w-0 overflow-hidden">
+              <div
+                key={idx}
+                className="rounded-xl border border-gray-100 bg-gray-50/60 p-4"
+              >
                 {section.title && (
-                  <h3 className="mb-2 text-sm font-semibold text-gray-800 break-words">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                     {section.title}
-                  </h3>
+                  </h4>
                 )}
-                <p className="text-sm leading-relaxed text-gray-600 italic break-words">
-                  "{section.content}"
+                <p className="text-sm leading-relaxed text-gray-700 italic break-words">
+                  &ldquo;{section.content}&rdquo;
                 </p>
               </div>
             ))}
           </div>
         ) : content ? (
-          <p className="text-sm leading-relaxed text-gray-600 italic break-words">
-            "{content}"
-          </p>
+          <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+            <p className="text-sm leading-relaxed text-gray-700 italic break-words">
+              &ldquo;{content}&rdquo;
+            </p>
+          </div>
         ) : (
-          <p className="text-sm text-gray-500">Nenhuma observação disponível</p>
+          <div className="py-8 text-center text-sm text-gray-400">
+            Nenhum conteúdo disponível
+          </div>
         )}
       </div>
-    </section>
+    </div>
   );
 }

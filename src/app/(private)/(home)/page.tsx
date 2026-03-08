@@ -1,20 +1,21 @@
 "use client";
 
+import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { useApiContext } from "@/context/ApiContext";
 import { startSession } from "@/services/analyticsService";
 import { Activity, Clock, Loader2, Mic, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
+import { CompleteRegistrationModal } from "./components/complete-registration-modal";
 import { ContentPanel } from "./components/content-panel";
 import { DateRangePicker } from "./components/date-range-picker";
 import { KPICard } from "./components/kpi-card";
 import { RecordingsChart } from "./components/recordings-chart";
+import { TrialAppModal } from "./components/trial-app-modal";
 import { UpcomingMeetings } from "./components/upcoming-meetings";
 import { UpcomingReminders } from "./components/upcoming-reminders";
-import { CompleteRegistrationModal } from "./components/complete-registration-modal";
-import { TrialAppModal } from "./components/trial-app-modal";
+import { UpgradePlanBanner } from "./components/upgrade-plan-banner";
 
 // Helper para formatar data para API (YYYY-MM-DD)
 const formatDateForAPI = (date: Date): string => {
@@ -220,6 +221,9 @@ export default function HomePage() {
           onDateRangeChange={setDateRange}
         />
       </div>
+
+      {/* Upgrade Plan Banner */}
+      <UpgradePlanBanner />
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

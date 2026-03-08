@@ -1,4 +1,3 @@
-import MobileAppBlocker from "@/components/mobile";
 import { ApiContextProvider } from "@/context/ApiContext";
 import { SessionProvider } from "@/context/auth";
 import moment from "moment";
@@ -53,7 +52,6 @@ export default function RootLayout({
           speed={200}
           shadow="0 0 10px #0d78ec,0 0 5px #0d78ec"
         />
-        <MobileAppBlocker />
 
         <Toaster
           containerStyle={{

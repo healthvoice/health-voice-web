@@ -1,12 +1,13 @@
 "use client";
 import { AuthGuard } from "@/components/auth-guard";
+import MobileAppBlocker from "@/components/mobile";
 import { Header } from "@/components/ui/header";
 import { Sidebar } from "@/components/ui/sidebar";
 import { GeneralContextProvider } from "@/context/GeneralContext";
 import { ChatPageProvider } from "@/context/chatContext";
 import { cn } from "@/utils/cn";
-import Lenis from "lenis";
 import { motion } from "framer-motion";
+import Lenis from "lenis";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -18,9 +19,13 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
 
+  const isFullscreen =
+    pathname === "/plans" ||
+    pathname.startsWith("/plans/");
+
   useEffect(() => {
-    // Não inicializa Lenis nas páginas de chat
-    if (pathname.includes("/chat")) {
+    // Não inicializa Lenis nas páginas de chat ou checkout
+    if (pathname.includes("/chat") || isFullscreen) {
       return;
     }
 
@@ -39,6 +44,22 @@ export default function RootLayout({
     };
   }, [pathname]);
 
+  if (isFullscreen) {
+    return (
+      <AuthGuard>
+        <GeneralContextProvider>
+          <ChatPageProvider>
+            <div className="min-h-screen w-full bg-[#0d0d0d]">
+              {children}
+            </div>
+        <MobileAppBlocker />
+
+          </ChatPageProvider>
+        </GeneralContextProvider>
+      </AuthGuard>
+    );
+  }
+
   return (
     <AuthGuard>
       <GeneralContextProvider>
@@ -50,6 +71,8 @@ export default function RootLayout({
           )}
         >
           <Header />
+        <MobileAppBlocker />
+
           <Sidebar />
           <Image
             src="/pattern.png"
