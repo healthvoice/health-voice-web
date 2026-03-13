@@ -14,7 +14,8 @@ import { exportOverviewToPdf } from "../utils/export-medical-record-pdf";
 export default function OverviewPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [editingCount, setEditingCount] = useState(0);
-  const [isPersonalizationModalOpen, setIsPersonalizationModalOpen] = useState(false);
+  const [isPersonalizationModalOpen, setIsPersonalizationModalOpen] =
+    useState(false);
   const overviewRef = useRef<OverviewHandle | null>(null);
   const pathname = usePathname();
   const { PostAPI } = useApiContext();
@@ -22,7 +23,9 @@ export default function OverviewPage() {
 
   // Abrir modal quando entrar na página (apenas uma vez)
   useEffect(() => {
-    const hasSeenModal = sessionStorage.getItem("hasSeenPersonalizationModal-resumo");
+    const hasSeenModal = sessionStorage.getItem(
+      "hasSeenPersonalizationModal-resumo",
+    );
     if (!hasSeenModal) {
       setIsPersonalizationModalOpen(true);
       sessionStorage.setItem("hasSeenPersonalizationModal-resumo", "true");
@@ -32,20 +35,24 @@ export default function OverviewPage() {
   // Tracking quando a página é visualizada (pathname garante disparo a cada acesso à tela)
   useEffect(() => {
     if (selectedRecording?.id) {
-      console.log('[Tracking] Disparando SCREEN_VIEWED: overview (Insights)');
+      console.log("[Tracking] Disparando SCREEN_VIEWED: overview (Insights)");
       trackAction(
         {
           actionType: UserActionType.SCREEN_VIEWED,
           recordingId: selectedRecording.id,
           metadata: {
-            screen: 'overview',
-            screenName: 'Insights',
+            screen: "overview",
+            screenName: "Insights",
             recordingId: selectedRecording.id,
           },
         },
-        PostAPI
+        PostAPI,
       ).catch((err: { status?: number; body?: unknown }) => {
-        console.warn('[Tracking] Falha ao registrar Overview:', err?.status ?? err, err?.body ?? err);
+        console.warn(
+          "[Tracking] Falha ao registrar Overview:",
+          err?.status ?? err,
+          err?.body ?? err,
+        );
       });
     }
   }, [selectedRecording?.id, PostAPI, pathname]);
@@ -74,14 +81,14 @@ export default function OverviewPage() {
             actionType: UserActionType.PDF_EXPORTED,
             recordingId: selectedRecording.id,
             metadata: {
-              type: 'overview',
+              type: "overview",
               patientName: selectedClient?.name || undefined,
               recordingId: selectedRecording.id,
             },
           },
-          PostAPI
+          PostAPI,
         ).catch((error) => {
-          console.warn('Erro ao registrar tracking de PDF:', error);
+          console.warn("Erro ao registrar tracking de PDF:", error);
         });
       }
       toast.success("PDF exportado com sucesso!");
