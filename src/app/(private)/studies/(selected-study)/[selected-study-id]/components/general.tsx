@@ -1,6 +1,6 @@
 "use client";
 
-import { RequestTranscription } from "@/components/ui/request-transcription";
+import { PendingRecordingEmptyState } from "@/components/pending-recording-empty-state";
 import { useGeneralContext } from "@/context/GeneralContext";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,22 +8,21 @@ import remarkGfm from "remark-gfm";
 export function General() {
   const { selectedRecording } = useGeneralContext();
 
-  return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="prose prose-sm prose-h1:text-center prose-h1:text-primary prose-h2:text-primary w-full max-w-none">
-        {selectedRecording?.summary ? (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {selectedRecording?.summary}
-          </ReactMarkdown>
-        ) : (
-          <>
-            <h1 className="text-primary m-auto w-full text-center text-3xl font-extrabold md:w-max">
-              Transcrição não disponível
-            </h1>
-            <RequestTranscription />
-          </>
-        )}
+  if (!selectedRecording) {
+    return null;
+  }
+
+  if (selectedRecording.summary) {
+    return (
+      <div className="prose prose-sm prose-p:my-2 prose-strong:font-semibold prose-strong:text-gray-900 w-full max-w-none text-left">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {selectedRecording.summary}
+        </ReactMarkdown>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <PendingRecordingEmptyState variant="resumo" className="min-h-[320px]" />
   );
 }

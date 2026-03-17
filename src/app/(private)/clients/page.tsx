@@ -1,27 +1,25 @@
 "use client";
-import { CreateClientSheet } from "@/components/ui/create-client-sheet";
+import { CreateClientModal } from "@/components/ui/create-client-modal";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { debounce } from "lodash";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { useCallback, useState } from "react";
 import { GeneralClientsTable } from "./components/general-client-table";
 
 export default function Clients() {
-  const { setRecordingsFilters } = useGeneralContext();
+  const { setClientsFilters } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
 
   const handleStopTyping = (value: string) => {
-    setRecordingsFilters({
+    setClientsFilters((prev) => ({
+      ...prev,
       query: value,
       page: 1,
-      type: undefined,
-      sortDirection: null,
-      sortBy: null,
-    });
+    }));
   };
 
   const debouncedHandleStopTyping = useCallback(
-    debounce(handleStopTyping, 1000),
+    debounce(handleStopTyping, 600),
     [],
   );
 
@@ -29,46 +27,56 @@ export default function Clients() {
     setLocalQuery(e.target.value);
     debouncedHandleStopTyping(e.target.value);
   };
-  const [isCreateClientSheetOpen, setIsCreateClientSheetOpen] = useState(false);
-  const onOpenNewClient = () => setIsCreateClientSheetOpen(true);
+
+  const [isCreateClientModalOpen, setIsCreateClientModalOpen] = useState(false);
+
   return (
-    <div className="flex w-full flex-col gap-4">
-      <div className="mb-4 flex w-full flex-row items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Seus Pacientes</h1>
-          <p className="text-sm text-gray-500">
-            Gerencie todos os seus pacientes
-          </p>
-        </div>
-        <div className="flex flex-row items-center gap-4">
-          <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1">
-            <div className="relative h-10 w-full sm:w-80">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={localQuery}
-                onChange={handleChange}
-                className="h-full w-full rounded-lg bg-transparent px-9 text-sm text-gray-700 outline-none placeholder:text-gray-400"
-              />
-            </div>
+    <div className="flex w-full flex-col gap-6">
+      {/* Header */}
+      <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/30">
+            <Users className="h-5 w-5 text-white" />
           </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Meus Pacientes</h1>
+            <p className="text-sm text-gray-500">
+              Gerencie e acompanhe todos os seus pacientes
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Search bar */}
+          <div className="relative flex items-center">
+            <Search className="absolute left-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar paciente..."
+              value={localQuery}
+              onChange={handleChange}
+              className="h-10 w-64 rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-sm text-gray-700 shadow-sm outline-none transition-all focus:border-sky-400 focus:shadow-md focus:shadow-sky-500/10 placeholder:text-gray-400"
+            />
+          </div>
+
+          {/* New patient button */}
           <button
-            onClick={onOpenNewClient}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-sky-500/40 active:scale-95"
+            onClick={() => setIsCreateClientModalOpen(true)}
+            className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 transition-all hover:shadow-sky-500/50 hover:brightness-110 active:scale-95"
           >
             <Plus className="h-4 w-4" />
             Novo Paciente
           </button>
         </div>
       </div>
+
+      {/* Table */}
       <GeneralClientsTable />
-      {isCreateClientSheetOpen && (
-        <CreateClientSheet
-          isOpen={isCreateClientSheetOpen}
-          onClose={() => setIsCreateClientSheetOpen(false)}
-        />
-      )}
+
+      <CreateClientModal
+        open={isCreateClientModalOpen}
+        onOpenChange={setIsCreateClientModalOpen}
+      />
     </div>
   );
 }

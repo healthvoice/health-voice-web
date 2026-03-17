@@ -20,7 +20,16 @@ interface PromptOption {
   icon?: string;
 }
 
-export function RequestTranscription() {
+interface RequestTranscriptionProps {
+  /** Quando true, o botão não usa posicionamento absoluto (útil em cards de estado vazio) */
+  inline?: boolean;
+  isPrincipal?: boolean;
+}
+
+export function RequestTranscription({
+  inline,
+  isPrincipal,
+}: RequestTranscriptionProps = {}) {
   const { selectedRecording, setSelectedRecording } = useGeneralContext();
   const { PutAPI, GetAPI } = useApiContext();
   const [isRequesting, setIsRequesting] = useState(false);
@@ -28,7 +37,9 @@ export function RequestTranscription() {
   const [prompts, setPrompts] = useState<PromptOption[]>([]);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPrompt, setSelectedPrompt] = useState<PromptOption | "default" | null>(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<
+    PromptOption | "default" | null
+  >(null);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -150,16 +161,20 @@ export function RequestTranscription() {
         prompt.content.toLowerCase().includes(query),
     );
   }, [prompts, searchQuery]);
-
+  console.log(selectedPrompt);
   return (
     <>
       <button
-        onClick={handleOpenModal}
+        onClick={() =>
+          isPrincipal ? handleOpenModal() : HandleRequestTranscription()
+        }
         disabled={
           selectedRecording?.transcriptionStatus === "PENDING" || isRequesting
         }
         className={cn(
-          "bg-primary absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold text-white",
+          "bg-primary flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98]",
+          !inline &&
+            "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
           selectedRecording?.transcriptionStatus === "PENDING" &&
             "cursor-wait bg-green-400 opacity-50",
           selectedRecording?.transcriptionStatus === "DONE" && "hidden",
@@ -181,7 +196,7 @@ export function RequestTranscription() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         size="max-w-4xl h-[90vh]"
-        className="border-0 bg-white shadow-2xl rounded-2xl overflow-hidden"
+        className="overflow-hidden rounded-2xl border-0 bg-white shadow-2xl"
       >
         <div className="flex h-full flex-col bg-gradient-to-b from-white to-gray-50/50">
           {/* Header com gradiente melhorado */}
@@ -206,33 +221,39 @@ export function RequestTranscription() {
               className="group rounded-full p-2 text-white transition-all hover:bg-white/25 hover:text-white"
               aria-label="Fechar modal"
             >
-              <X size={22} className="transition-transform group-hover:rotate-90" />
+              <X
+                size={22}
+                className="transition-transform group-hover:rotate-90"
+              />
             </button>
           </div>
 
           {/* Content */}
-          <div 
-            className="relative flex flex-1 flex-col gap-5 p-6" 
+          <div
+            className="relative flex flex-1 flex-col gap-5 p-6"
             style={{ minHeight: 0 }}
             onWheel={(e) => e.stopPropagation()}
           >
             {/* Search Bar melhorada */}
             <div className="relative shrink-0">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <Search
+                className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
+                size={20}
+              />
               <input
                 type="text"
                 placeholder="Buscar prompts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border-2 border-gray-200 bg-white py-3.5 pl-12 pr-4 text-sm shadow-sm transition-all placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                className="w-full rounded-xl border-2 border-gray-200 bg-white py-3.5 pr-4 pl-12 text-sm shadow-sm transition-all placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:outline-none"
               />
             </div>
 
             {/* Prompts List melhorada com scroll funcional */}
-            <div 
+            <div
               className={cn(
-                "flex flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar",
-                (selectedPrompt === "default" || selectedPrompt) && "pb-24"
+                "custom-scrollbar flex flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2",
+                (selectedPrompt === "default" || selectedPrompt) && "pb-24",
               )}
               style={{ minHeight: 0 }}
               onWheel={(e) => e.stopPropagation()}
@@ -240,7 +261,9 @@ export function RequestTranscription() {
               {isLoadingPrompts ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Loader2 className="animate-spin text-blue-500" size={32} />
-                  <p className="mt-4 text-sm text-gray-500">Carregando prompts...</p>
+                  <p className="mt-4 text-sm text-gray-500">
+                    Carregando prompts...
+                  </p>
                 </div>
               ) : (
                 <>
@@ -260,14 +283,14 @@ export function RequestTranscription() {
                     <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-500 transition-colors group-hover:bg-gray-300">
                       <Sparkles size={20} className="text-gray-600" />
                     </div>
-                    
+
                     {/* Conteúdo do prompt padrão */}
-                    <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
-                      <span className="font-medium text-gray-600 transition-colors group-hover:text-gray-700 truncate">
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                      <span className="truncate font-medium text-gray-600 transition-colors group-hover:text-gray-700">
                         Prompt Padrão
                       </span>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600 whitespace-nowrap">
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium whitespace-nowrap text-gray-600">
                           Padrão
                         </span>
                         {/* Indicador de seleção */}
@@ -292,51 +315,54 @@ export function RequestTranscription() {
                     </div>
                   ) : (
                     filteredPrompts.map((prompt) => (
-                    <button
-                      key={prompt.id}
-                      onClick={() => handleSelectPrompt(prompt)}
-                      disabled={isRequesting}
-                      className={cn(
-                        "group relative flex w-full items-center gap-4 rounded-xl border-2 bg-white p-4 text-left shadow-sm transition-all duration-200",
-                        selectedPrompt && selectedPrompt !== "default" && selectedPrompt.id === prompt.id
-                          ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-500/20"
-                          : "border-gray-100 hover:border-blue-300 hover:shadow-md hover:shadow-blue-500/10",
-                        isRequesting && "cursor-not-allowed opacity-50",
-                      )}
-                    >4
-                      {/* Ícone com gradiente melhorado */}
-                      <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/40">
-                        <PromptIcon
-                          icon={prompt.icon}
-                          size={24}
-                          className="text-white drop-shadow-sm"
-                        />
-                      </div>
-                      
-                      {/* Conteúdo do prompt */}
-                      <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
-                        <span className="font-semibold text-gray-900 transition-colors group-hover:text-blue-600 truncate">
-                          {prompt.name}
-                        </span>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span
-                            className={cn(
-                              "rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-all whitespace-nowrap",
-                              getSourceColor(prompt.source),
-                            )}
-                          >
-                            {getSourceLabel(prompt.source)}
-                          </span>
-                          {/* Indicador de seleção */}
-                          {selectedPrompt && selectedPrompt !== "default" && selectedPrompt.id === prompt.id && (
-                            <div className="flex items-center justify-center rounded-full bg-blue-600 p-1.5 shadow-lg">
-                              <Check size={16} className="text-white" />
-                            </div>
-                          )}
+                      <button
+                        key={prompt.id}
+                        onClick={() => handleSelectPrompt(prompt)}
+                        disabled={isRequesting}
+                        className={cn(
+                          "group relative flex w-full items-center gap-4 rounded-xl border-2 bg-white p-4 text-left shadow-sm transition-all duration-200",
+                          selectedPrompt &&
+                            selectedPrompt !== "default" &&
+                            selectedPrompt.id === prompt.id
+                            ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-500/20"
+                            : "border-gray-100 hover:border-blue-300 hover:shadow-md hover:shadow-blue-500/10",
+                          isRequesting && "cursor-not-allowed opacity-50",
+                        )}
+                      >
+                        4{/* Ícone com gradiente melhorado */}
+                        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/40">
+                          <PromptIcon
+                            icon={prompt.icon}
+                            size={24}
+                            className="text-white drop-shadow-sm"
+                          />
                         </div>
-                      </div>
-                    </button>
-                  ))
+                        {/* Conteúdo do prompt */}
+                        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                          <span className="truncate font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
+                            {prompt.name}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <span
+                              className={cn(
+                                "rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap shadow-sm transition-all",
+                                getSourceColor(prompt.source),
+                              )}
+                            >
+                              {getSourceLabel(prompt.source)}
+                            </span>
+                            {/* Indicador de seleção */}
+                            {selectedPrompt &&
+                              selectedPrompt !== "default" &&
+                              selectedPrompt.id === prompt.id && (
+                                <div className="flex items-center justify-center rounded-full bg-blue-600 p-1.5 shadow-lg">
+                                  <Check size={16} className="text-white" />
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      </button>
+                    ))
                   )}
                 </>
               )}
@@ -344,7 +370,7 @@ export function RequestTranscription() {
 
             {/* Botão flutuante de confirmação */}
             {selectedPrompt && (
-              <div className="absolute bottom-6 left-6 right-6 z-10 animate-in fade-in duration-300">
+              <div className="animate-in fade-in absolute right-6 bottom-6 left-6 z-10 duration-300">
                 <button
                   onClick={handleConfirmSelection}
                   disabled={isRequesting}
@@ -361,7 +387,10 @@ export function RequestTranscription() {
                     <>
                       <Check size={20} />
                       <span>
-                        Confirmar seleção: {selectedPrompt === "default" ? "Prompt Padrão" : selectedPrompt.name}
+                        Confirmar seleção:{" "}
+                        {selectedPrompt === "default"
+                          ? "Prompt Padrão"
+                          : selectedPrompt.name}
                       </span>
                     </>
                   )}

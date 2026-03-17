@@ -5,13 +5,15 @@ import { debounce } from "lodash";
 import { ArrowUpDown, Plus, Search } from "lucide-react";
 import { useCallback, useState } from "react";
 import { GeneralRemindersCards } from "./components/general-reminder-cards";
+import { NewReminderModal } from "./components/new-reminder-modal";
 
 type SortableColumn = "NAME" | "DATE" | "TIME" | null;
 type SortDirection = "ASC" | "DESC" | null;
 
 export default function Reminders() {
-  const { setRemindersFilters, openNewRecording } = useGeneralContext();
+  const { setRemindersFilters, GetReminders } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
+  const [newReminderModalOpen, setNewReminderModalOpen] = useState(false);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn>(null);
 
@@ -71,7 +73,7 @@ export default function Reminders() {
               </div>
             </div>
             <button
-              onClick={() => openNewRecording("PERSONAL", "REMINDER")}
+              onClick={() => setNewReminderModalOpen(true)}
               className="flex shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-sky-500/40 active:scale-95"
             >
               <Plus className="h-4 w-4" />
@@ -107,6 +109,11 @@ export default function Reminders() {
         </div>
       </div>
       <GeneralRemindersCards />
+      <NewReminderModal
+        open={newReminderModalOpen}
+        onOpenChange={setNewReminderModalOpen}
+        onSuccess={GetReminders}
+      />
     </div>
   );
 }

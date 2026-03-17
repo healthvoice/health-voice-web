@@ -2,267 +2,218 @@
 
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useSession } from "@/context/auth";
+import { TOUR_ENABLED, useRecordingTour } from "@/context/RecordingTourContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { startSession } from "@/services/analyticsService";
-import { Activity, Clock, Loader2, Mic, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { DateRange } from "react-day-picker";
+import { motion } from "framer-motion";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CreateClientModal } from "@/components/ui/create-client-modal";
+import { NewReminderModal } from "@/app/(private)/reminders/components/new-reminder-modal";
+import { NewPersonalRecordingModal } from "@/app/(private)/recordings/components/new-personal-recording-modal";
 import { CompleteRegistrationModal } from "./components/complete-registration-modal";
-import { ContentPanel } from "./components/content-panel";
-import { DateRangePicker } from "./components/date-range-picker";
-import { KPICard } from "./components/kpi-card";
-import { RecordingsChart } from "./components/recordings-chart";
+import { QuickActions } from "./components/quick-actions";
+import { RecentClients } from "./components/recent-clients";
+import { RecentOthersList } from "./components/recent-others-list";
+import { RecentStudyList } from "./components/recent-study-list";
+import { TodayRemindersCompact } from "./components/today-reminders-compact";
 import { TrialAppModal } from "./components/trial-app-modal";
-import { UpcomingMeetings } from "./components/upcoming-meetings";
-import { UpcomingReminders } from "./components/upcoming-reminders";
 import { UpgradePlanBanner } from "./components/upgrade-plan-banner";
+import { WelcomeTourModal } from "./components/welcome-tour-modal";
+import { RecentRecordingsList } from "./components/recent-recordings-list";
 
-// Helper para formatar data para API (YYYY-MM-DD)
-const formatDateForAPI = (date: Date): string => {
-  console.log("date", date);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  console.log("response date", `${year}-${month}-${day}`);
-  return `${year}-${month}-${day}`;
-};
+function useLiveTime() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+const WEEKDAYS = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
+const MONTHS = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
 
 export default function HomePage() {
-  const { dashboardStats, isGettingDashboardStats, GetDashboardStats } =
-    useGeneralContext();
+  const pathname = usePathname();
+  const { profile } = useSession();
   const { PostAPI } = useApiContext();
+  const { GetReminders, GetRecordings } = useGeneralContext();
+  const { startTour } = useRecordingTour();
+  const now = useLiveTime();
 
-  // Geolocalização
-  const { latitude, longitude, fullData, error: geolocationError, isLoading: isLoadingLocation, requestLocation } = useGeolocation();
+  const [trialAppModalOpen, setTrialAppModalOpen] = useState<boolean | null>(
+    null,
+  );
+  const [showWelcomeTourModal, setShowWelcomeTourModal] = useState(false);
+  const [createClientModalOpen, setCreateClientModalOpen] = useState(false);
+  const [newReminderModalOpen, setNewReminderModalOpen] = useState(false);
+  const [newPersonalModalOpen, setNewPersonalModalOpen] = useState(false);
+  const prevTrialModalRef = useRef<boolean | null>(null);
 
-  // Date range state - default to last 7 days
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date();
-    const from = new Date(today);
-    from.setDate(today.getDate() - 7);
-    return { from, to: today };
-  });
+  const { fullData, requestLocation } = useGeolocation();
 
-  // Buscar stats quando dateRange mudar
-  const fetchStats = useCallback(() => {
-    if (dateRange?.from) {
-      // Se não tiver "to", usar o mesmo dia que "from" (seleção de um único dia)
-      const startDate = formatDateForAPI(dateRange.from);
-      const endDate = formatDateForAPI(dateRange.to || dateRange.from);
-      
-      console.log(`[HomePage] Fetching stats: ${startDate} to ${endDate}`);
-      
-      GetDashboardStats({
-        startDate,
-        endDate,
-      });
-    }
-  }, [dateRange, GetDashboardStats]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  // Solicitar localização quando a página carregar
   useEffect(() => {
     requestLocation();
   }, [requestLocation]);
 
-  // Enviar localização para startSession quando disponível
   useEffect(() => {
     if (fullData) {
-      startSession(PostAPI, fullData).catch((error) => {
-        console.warn('Erro ao enviar localização na sessão:', error);
-      });
+      startSession(PostAPI, fullData).catch((err) =>
+        console.warn("Erro ao enviar localização:", err),
+      );
     }
   }, [fullData, PostAPI]);
 
-  // Converter dados da API para o formato do gráfico
-  const chartData = useMemo(() => {
-    if (!dashboardStats?.recordingsByDay) {
-      return [];
-    }
+  useEffect(() => {
+    if (!TOUR_ENABLED) return;
+    if (pathname !== "/") return;
+    if (trialAppModalOpen !== false) return;
+    const prev = prevTrialModalRef.current;
+    if (prev !== true && prev !== null) return;
+    prevTrialModalRef.current = false;
+    const t = setTimeout(() => setShowWelcomeTourModal(true), 600);
+    return () => clearTimeout(t);
+  }, [pathname, trialAppModalOpen]);
 
-    return dashboardStats.recordingsByDay.map((day) => {
-      console.log(day, "day");
-      const date = new Date(day.date + "T00:00:00");
-      console.log(date, "date");
-      console.log(date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-      }), "date.toLocaleDateString");
-      return {
-        date: date.toLocaleDateString("pt-BR", {
-          day: "2-digit",
-          month: "short",
-        }),
-        recordings: day.count,
-      };
-    });
+  useEffect(() => {
+    prevTrialModalRef.current = trialAppModalOpen;
+  }, [trialAppModalOpen]);
 
-  }, [dashboardStats]);
+  const handleWelcomeTourStart = useCallback(() => {
+    setShowWelcomeTourModal(false);
+    startTour(0);
+  }, [startTour]);
 
-  // KPIs baseados nos dados reais
-  const totalRecordings = dashboardStats?.totalRecordings || 0;
-  const totalSeconds = dashboardStats?.totalSeconds || 0;
-  const totalClients = dashboardStats?.totalClients || 0;
+  const hour = now.getHours();
+  const greeting =
+    hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const firstName = profile?.name?.split(" ")[0] ?? "...";
 
-  // Formatar tempo gravado (mostrar minutos se for menos de 1 hora)
-  const formatDuration = (seconds: number): string => {
-    if (seconds === 0) return "0m";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  };
+  const dayName = WEEKDAYS[now.getDay()];
+  const dateString = `${dayName}, ${now.getDate()} de ${MONTHS[now.getMonth()]}. de ${now.getFullYear()}`;
+  const timeString = now.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  const formattedTotalDuration = formatDuration(totalSeconds);
-
-  const avgSecondsPerClient = useMemo(() => {
-    if (totalClients === 0) return 0;
-    return totalSeconds / totalClients;
-  }, [totalSeconds, totalClients]);
-
-  const formattedAvgDuration = formatDuration(avgSecondsPerClient);
-
-  // Calcular trends (comparação com período anterior)
-  const calculateTrend = (
-    current: number,
-    previous: number,
-  ): { value: number; isPositive: boolean } => {
-    if (previous === 0) {
-      return { value: current > 0 ? 100 : 0, isPositive: current > 0 };
-    }
-    const percentChange = ((current - previous) / previous) * 100;
-    return {
-      value: Math.abs(Math.round(percentChange)),
-      isPositive: percentChange >= 0,
-    };
-  };
-
-  const recordingsTrend = useMemo(() => {
-    return calculateTrend(
-      totalRecordings,
-      dashboardStats?.previousPeriod?.totalRecordings || 0,
-    );
-  }, [totalRecordings, dashboardStats]);
-
-  const hoursTrend = useMemo(() => {
-    return calculateTrend(
-      totalSeconds,
-      dashboardStats?.previousPeriod?.totalSeconds || 0,
-    );
-  }, [totalSeconds, dashboardStats]);
-
-  const clientsTrend = useMemo(() => {
-    return calculateTrend(
-      totalClients,
-      dashboardStats?.previousPeriod?.totalClients || 0,
-    );
-  }, [totalClients, dashboardStats]);
-
-  // KPIs
-  const kpis = [
-    {
-      title: "Quantidade de gravação",
-      value: isGettingDashboardStats ? "..." : totalRecordings,
-      subtitle: "no período selecionado",
-      icon: Mic,
-      variant: "primary" as const,
-      trend: recordingsTrend,
-    },
-    {
-      title: "Tempo gravado",
-      value: isGettingDashboardStats ? "..." : formattedTotalDuration,
-      subtitle: "total acumulado",
-      icon: Clock,
-      variant: "warning" as const,
-      trend: hoursTrend,
-    },
-    {
-      title: "Contatos atendidos",
-      value: isGettingDashboardStats ? "..." : totalClients,
-      subtitle: "pacientes únicos",
-      icon: Users,
-      variant: "success" as const,
-      trend: clientsTrend,
-    },
-    {
-      title: "Tempo por contato",
-      value: isGettingDashboardStats
-        ? "..."
-        : totalClients > 0 ? formattedAvgDuration : "—",
-      subtitle: "média por contato",
-      icon: Activity,
-      variant: "info" as const,
-      trend: { value: 0, isPositive: true }, // Este não tem trend específico
-    },
-  ];
-  console.log(chartData, "chartData");
-  
   return (
     <div className="flex w-full flex-col gap-4">
-      <div className="mb-4 flex w-full flex-row items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-sm text-gray-500">
-            Acompanhe suas métricas e atividades
-          </p>
-        </div>
-        <DateRangePicker
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-        />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="relative overflow-hidden"
+      >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-sky-50/70 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute -top-8 -right-8 h-28 w-28 rounded-full bg-blue-100/30 blur-3xl" />
 
-      {/* Upgrade Plan Banner */}
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="mt-0.5 truncate text-xl font-extrabold tracking-tight text-gray-900">
+              {greeting},{" "}
+              <span className="bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">
+                {firstName}
+              </span>{" "}
+              👋
+            </h1>
+            <p className="mt-0.5 text-xs text-gray-400">
+              Seu espaço de gravação e gestão de consultas.
+            </p>
+          </div>
+
+          {/* Live clock */}
+          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-500" />
+            </div>
+            <span className="text-base font-bold text-gray-800 tabular-nums">
+              {timeString}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+
       <UpgradePlanBanner />
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi, index) => (
-          <KPICard
-            key={kpi.title}
-            {...kpi}
-            className={`delay-${index * 100}`}
-          />
-        ))}
-      </div>
-
-      {/* Charts and Meetings Section */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Recordings Chart - takes 2 columns */}
-        <div className="relative min-h-[400px] lg:col-span-2">
-          {isGettingDashboardStats && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/80">
-              <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
-            </div>
-          )}
-          <RecordingsChart data={chartData} className="h-full" />
+      <p className="mb-2 text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+        Ações rápidas
+      </p>
+      <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-4">
+        {/* 3/4 da tela: 4 cards de ação rápida */}
+        <div className="flex min-h-0 flex-col gap-4 lg:col-span-3">
+          <div className="">
+            <QuickActions
+              onNewPatientClick={() => setCreateClientModalOpen(true)}
+              onNewReminderClick={() => setNewReminderModalOpen(true)}
+              onNewPersonalClick={() => setNewPersonalModalOpen(true)}
+            />
+          </div>
+          <RecentRecordingsList className="min-w-0 lg:col-span-1" />
         </div>
 
-        {/* Upcoming Meetings - takes 1 column */}
-        <UpcomingMeetings className="min-h-[400px]" />
+        {/* 1/4 da tela: Últimas consultas + Lembretes (altura igual ao bloco da esquerda) */}
+        <div className="flex min-h-0 flex-col gap-4 lg:col-span-1">
+          <RecentClients className="min-h-0 min-w-0 flex-1" />
+          <TodayRemindersCompact className="min-h-0 min-w-0 flex-1" />
+        </div>
       </div>
 
-      {/* Reminders and Content Section */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Upcoming Reminders - takes 1 column (same width as Meetings) */}
-        <UpcomingReminders className="min-h-[400px]" />
+      {/* Estudo e outros */}
+      {/* <div>
+        <p className="mb-2 text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+          Estudo e outros
+        </p>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RecentStudyList className="min-w-0" />
+          <RecentOthersList className="min-w-0" />
+        </div>
+      </div> */}
 
-        {/* Content Panel - takes 2 columns (same width as Chart) */}
-        <ContentPanel className="min-h-[400px] lg:col-span-2" />
-      </div>
-
+      {/* ── MODALS ─────────────────────────────────────── */}
+      <CreateClientModal
+        open={createClientModalOpen}
+        onOpenChange={setCreateClientModalOpen}
+      />
+      <NewReminderModal
+        open={newReminderModalOpen}
+        onOpenChange={setNewReminderModalOpen}
+        onSuccess={GetReminders}
+      />
+      <NewPersonalRecordingModal
+        open={newPersonalModalOpen}
+        onOpenChange={setNewPersonalModalOpen}
+        onSuccess={GetRecordings}
+      />
       <CompleteRegistrationModal />
-      <TrialAppModal />
+      <TrialAppModal onOpenChange={setTrialAppModalOpen} />
+      <WelcomeTourModal
+        isOpen={showWelcomeTourModal}
+        onStart={handleWelcomeTourStart}
+      />
     </div>
   );
 }

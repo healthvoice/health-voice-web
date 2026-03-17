@@ -96,8 +96,9 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
+        side="right"
         sideOffset={8}
-        className="flex w-[360px] max-h-[min(420px,85vh)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-lg"
+        className="z-[10050] flex w-[360px] max-h-[min(420px,85vh)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-lg"
         data-lenis-prevent
         onWheel={(e) => e.stopPropagation()}
       >

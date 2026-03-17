@@ -3,6 +3,7 @@ import { RecordingDetailsProps } from "@/@types/general-client";
 import { TableCell, TableRow } from "@/components/ui/blocks/table";
 import { OtherIcon } from "@/components/ui/custom-icons";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { cn } from "@/utils/cn";
 import { ChevronRight } from "lucide-react";
 import moment from "moment";
 import "moment/locale/pt-br";
@@ -21,6 +22,32 @@ export function GeneralOthersTableItem({ recording }: Props) {
     setSelectedRecording(recording);
     router.push(`/others/${recording.id}`);
   };
+
+  const transcriptionStatusConfig: Record<
+    RecordingDetailsProps["transcriptionStatus"],
+    { label: string; className: string }
+  > = {
+    DONE: {
+      label: "Transcrita",
+      className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20",
+    },
+    TRANSCRIBING: {
+      label: "Processando",
+      className: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
+    },
+    PENDING: {
+      label: "Pendente",
+      className: "bg-gray-50 text-gray-500 ring-1 ring-gray-300/50",
+    },
+    NOT_REQUESTED: {
+      label: "Sem transcrição",
+      className: "bg-gray-50 text-gray-400 ring-1 ring-gray-200",
+    },
+  };
+
+  const transcriptionStatus =
+    transcriptionStatusConfig[recording.transcriptionStatus] ??
+    transcriptionStatusConfig["PENDING"];
 
   return (
     <TableRow
@@ -49,6 +76,16 @@ export function GeneralOthersTableItem({ recording }: Props) {
       <TableCell className="py-4 text-start">
         <span className="inline-flex items-center rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 group-hover:bg-blue-50 group-hover:text-blue-700">
           {recording.duration || "00:00"}
+        </span>
+      </TableCell>
+      <TableCell className="py-4 text-start">
+        <span
+          className={cn(
+            "inline-flex items-center rounded-lg px-2.5 py-1 text-center text-xs font-medium ring-1",
+            transcriptionStatus.className,
+          )}
+        >
+          {transcriptionStatus.label}
         </span>
       </TableCell>
       <TableCell className="py-4 pr-6 text-end">

@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingRecordingEmptyState } from "@/components/pending-recording-empty-state";
 import { RequestTranscription } from "@/components/ui/request-transcription";
 import { useGeneralContext } from "@/context/GeneralContext";
 import ReactMarkdown from "react-markdown";
@@ -16,10 +17,11 @@ export function General() {
         </ReactMarkdown>
       ) : (
         <>
-          <h1 className="text-primary m-auto w-full text-center text-3xl font-extrabold md:w-max">
-            Transcrição não disponível
-          </h1>
-          <RequestTranscription />
+          <PendingRecordingEmptyState
+            variant="insights"
+            isPrincipal={true}
+            className="min-h-[340px] w-full"
+          />
         </>
       )}
     </div>

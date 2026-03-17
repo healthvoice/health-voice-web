@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef,
+} from "react";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useApiContext } from "@/context/ApiContext";
 import { trackAction, UserActionType } from "@/services/actionTrackingService";
@@ -10,6 +18,7 @@ import type { AIComponentResponse } from "@/app/(private)/ai-components-preview/
 import { convertToAIComponentResponse } from "../utils/summary-converter";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { PendingRecordingEmptyState } from "@/components/pending-recording-empty-state";
 
 export interface MedicalRecordHandle {
   getResponse: () => AIComponentResponse | null;
@@ -20,7 +29,10 @@ interface MedicalRecordProps {
   onEditEnd?: () => void;
 }
 
-export const MedicalRecord = forwardRef<MedicalRecordHandle, MedicalRecordProps>(function MedicalRecord({ onEditStart, onEditEnd }, ref) {
+export const MedicalRecord = forwardRef<
+  MedicalRecordHandle,
+  MedicalRecordProps
+>(function MedicalRecord({ onEditStart, onEditEnd }, ref) {
   const { selectedRecording, selectedClient, setSelectedRecording } =
     useGeneralContext();
   const { PutAPI, PostAPI } = useApiContext();
@@ -63,11 +75,13 @@ export const MedicalRecord = forwardRef<MedicalRecordHandle, MedicalRecordProps>
       if (!selectedRecording?.id) return;
       const prev = responseRef.current;
       if (!prev?.sections) return;
-      
+
       // Verificar se houve alteração real comparando o componente anterior com o atual
-      const prevComponent = prev.sections[sectionIndex]?.components[componentIndex];
-      const hasChanges = JSON.stringify(prevComponent) !== JSON.stringify(updated);
-      
+      const prevComponent =
+        prev.sections[sectionIndex]?.components[componentIndex];
+      const hasChanges =
+        JSON.stringify(prevComponent) !== JSON.stringify(updated);
+
       const next: AIComponentResponse = {
         pageTitle: prev.pageTitle ?? "",
         sections: prev.sections.map((section, si) =>
@@ -100,13 +114,13 @@ export const MedicalRecord = forwardRef<MedicalRecordHandle, MedicalRecordProps>
                 actionType: UserActionType.SUMMARY_EDITED,
                 recordingId: selectedRecording.id,
                 metadata: {
-                  screen: 'medical-record',
-                  screenName: 'Prontuário Médico',
+                  screen: "medical-record",
+                  screenName: "Prontuário Médico",
                 },
               },
-              PostAPI
+              PostAPI,
             ).catch((error) => {
-              console.warn('Erro ao registrar tracking de edição:', error);
+              console.warn("Erro ao registrar tracking de edição:", error);
             });
           }
           toast.success("Alterações salvas no prontuário.");
@@ -140,22 +154,11 @@ export const MedicalRecord = forwardRef<MedicalRecordHandle, MedicalRecordProps>
 
   if (!initialSummary) {
     return (
-      <div className="flex w-full flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-12">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Prontuário Médico não disponível
-          </h3>
-          <p className="mt-2 text-sm text-gray-500">
-            Esta gravação ainda não possui um prontuário médico estruturado
-            gerado pela IA.
-            {selectedRecording.summary && (
-              <span className="mt-4 block">
-                Você pode visualizar o resumo em texto na aba "Geral".
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
+      <PendingRecordingEmptyState
+        variant="insights"
+        isPrincipal={true}
+        className="min-h-[340px] w-full"
+      />
     );
   }
 

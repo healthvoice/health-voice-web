@@ -1,22 +1,9 @@
 "use client";
 import { CustomPagination } from "@/components/ui/blocks/custom-pagination";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/blocks/table";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { cn } from "@/utils/cn";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Users } from "lucide-react";
+import { useEffect } from "react";
 import { GeneralClientTableItem } from "./general-client-table-row";
-
-type SortableColumn = "NAME" | "BIRTH_DATE" | "DESCRIPTION" | null;
-
-type SortDirection = "ASC" | "DESC" | null;
 
 export function GeneralClientsTable() {
   const {
@@ -27,60 +14,6 @@ export function GeneralClientsTable() {
     clientsTotalPages,
     setRecordingsFilters,
   } = useGeneralContext();
-
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [sortColumn, setSortColumn] = useState<SortableColumn>(null);
-  const [isCreateClientSheetOpen, setIsCreateClientSheetOpen] = useState(false);
-
-  const GeneralClientsColumns = [
-    { key: "NAME", label: "Nome do Paciente", sortable: true },
-    { key: "LAST_RECORDING", label: "Ultima gravação", sortable: true },
-    { key: "DESCRIPTION", label: "Descrição", sortable: true },
-    { key: "ACTIONS", label: "Ações", sortable: false },
-  ];
-
-  const applySortToFilters = (
-    column: SortableColumn,
-    direction: SortDirection,
-  ) => {
-    const sortField = direction ? column : undefined;
-    const sortOrder = direction || undefined;
-
-    setClientsFilters((prev) => ({
-      ...prev,
-      sortBy: (sortField as SortableColumn | undefined) || undefined,
-      sortDirection: sortOrder || undefined,
-      page: 1,
-    }));
-  };
-
-  const handleSort = (column: SortableColumn) => {
-    if (sortColumn === column) {
-      const next =
-        sortDirection === "ASC"
-          ? "DESC"
-          : sortDirection === "DESC"
-            ? null
-            : "ASC";
-      setSortDirection(next || null);
-      setSortColumn(next ? column : null);
-      applySortToFilters(column, next);
-    } else {
-      setSortColumn(column);
-      setSortDirection("ASC");
-      applySortToFilters(column, "ASC");
-    }
-  };
-
-  const getSortIcon = (column: SortableColumn) => {
-    if (sortColumn !== column)
-      return <ChevronUp className="h-4 w-4 text-gray-300" />;
-    if (sortDirection === "ASC")
-      return <ChevronUp className="h-4 w-4 text-gray-600" />;
-    if (sortDirection === "DESC")
-      return <ChevronDown className="h-4 w-4 text-gray-600" />;
-    return <ChevronUp className="h-4 w-4 text-gray-300" />;
-  };
 
   useEffect(() => {
     setRecordingsFilters((prev) => ({
@@ -93,103 +26,73 @@ export function GeneralClientsTable() {
       reminderId: undefined,
       page: 1,
     }));
-    setClientsFilters({
-      ...clientsFilters,
+    setClientsFilters((prev) => ({
+      ...prev,
       page: 1,
-    });
+    }));
   }, []);
 
   return (
     <div className="flex flex-col gap-6">
-      {/* <GeneralClientsTableHeader
-        onOpenNewClient={() => setIsCreateClientSheetOpen(true)}
-      /> */}
-
-      <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-        <Table wrapperClass="h-full">
-          <TableHeader>
-            <TableRow className="gap-1 bg-gray-50/50 hover:bg-gray-50/50">
-              {GeneralClientsColumns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  className={cn(
-                    "h-12 text-xs font-semibold tracking-wider text-gray-500 uppercase",
-                    column.sortable &&
-                      "cursor-pointer select-none hover:text-gray-700",
-                  )}
-                  onClick={() =>
-                    column.sortable && handleSort(column.key as SortableColumn)
-                  }
-                >
-                  <div
-                    className={cn(
-                      "flex w-max items-center gap-2",
-                      column.key === "ACTIONS" && "w-full justify-end",
-                    )}
-                  >
-                    {column.label}
-                    {column.sortable &&
-                      getSortIcon(column.key as SortableColumn)}
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {isGettingClients
+          ? /* Skeleton cards */
+            Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 animate-pulse rounded-2xl bg-gray-100" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <div className="h-4 w-3/4 animate-pulse rounded-lg bg-gray-100" />
+                    <div className="h-3 w-1/2 animate-pulse rounded-lg bg-gray-100" />
                   </div>
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody className="relative">
-            {isGettingClients
-              ? Array.from({ length: 5 }).map((_, index) => (
-                  <TableRow key={index}>
-                    {GeneralClientsColumns.map((col, idx) => (
-                      <TableCell
-                        key={idx}
-                        className="h-16 animate-pulse bg-gray-50"
-                      />
-                    ))}
-                  </TableRow>
-                ))
-              : !isGettingClients && clients.length !== 0
-                ? clients.map((row) => (
-                    <GeneralClientTableItem key={row.id} client={row} />
-                  ))
-                : !isGettingClients &&
-                  clients.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={GeneralClientsColumns.length}
-                        className="h-64 text-center"
-                      >
-                        <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
-                          <span className="text-lg font-medium">
-                            Nenhum paciente encontrado
-                          </span>
-                          <span className="text-sm">
-                            Cadastre um novo paciente para começar
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-          </TableBody>
-        </Table>
-        {!isGettingClients && clientsTotalPages > 1 && (
-          <div className="border-t border-gray-100 p-4">
-            <CustomPagination
-              currentPage={clientsFilters.page}
-              setCurrentPage={(page) =>
-                setClientsFilters((prev) => ({ ...prev, page }))
-              }
-              pages={clientsTotalPages}
-            />
-          </div>
-        )}
+                </div>
+                <div className="h-12 animate-pulse rounded-xl bg-gray-100" />
+                <div className="flex justify-end">
+                  <div className="h-3 w-24 animate-pulse rounded-lg bg-gray-100" />
+                </div>
+              </div>
+            ))
+          : clients.length > 0
+            ? clients.map((client) => (
+                <GeneralClientTableItem key={client.id} client={client} />
+              ))
+            : /* Empty state */
+              null}
       </div>
 
-      {/* {isCreateClientSheetOpen && (
-        <CreateClientSheet
-          isOpen={isCreateClientSheetOpen}
-          onClose={() => setIsCreateClientSheetOpen(false)}
-        />
-      )} */}
+      {/* Empty state (outside grid so it spans full width) */}
+      {!isGettingClients && clients.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 py-20 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-blue-100">
+            <Users className="h-8 w-8 text-sky-500" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-gray-700">
+              Nenhum paciente encontrado
+            </p>
+            <p className="mt-1 text-sm text-gray-400">
+              Cadastre um novo paciente clicando em &ldquo;Novo Paciente&rdquo;
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!isGettingClients && clientsTotalPages > 1 && (
+        <div className="flex justify-center">
+          <CustomPagination
+            currentPage={clientsFilters.page}
+            setCurrentPage={(page) =>
+              setClientsFilters((prev) => ({ ...prev, page }))
+            }
+            pages={clientsTotalPages}
+          />
+        </div>
+      )}
     </div>
   );
 }

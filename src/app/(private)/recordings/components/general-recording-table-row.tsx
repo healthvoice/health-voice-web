@@ -106,6 +106,32 @@ export function GeneralRecordingTableItem({ recording }: Props) {
   const typeStyle = getTypeStyle();
   const Icon = typeStyle.icon;
 
+  const transcriptionStatusConfig: Record<
+    RecordingDetailsProps["transcriptionStatus"],
+    { label: string; className: string }
+  > = {
+    DONE: {
+      label: "Transcrita",
+      className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20",
+    },
+    TRANSCRIBING: {
+      label: "Processando",
+      className: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
+    },
+    PENDING: {
+      label: "Pendente",
+      className: "bg-gray-50 text-gray-500 ring-1 ring-gray-300/50",
+    },
+    NOT_REQUESTED: {
+      label: "Sem transcrição",
+      className: "bg-gray-50 text-gray-400 ring-1 ring-gray-200",
+    },
+  };
+
+  const transcriptionStatus =
+    transcriptionStatusConfig[recording.transcriptionStatus] ??
+    transcriptionStatusConfig["PENDING"];
+
   return (
     <TableRow
       onClick={handleNavigation}
@@ -155,14 +181,26 @@ export function GeneralRecordingTableItem({ recording }: Props) {
           </Tooltip>
         </TooltipProvider>
       </TableCell>
-      <TableCell className="py-2 text-start text-sm font-semibold whitespace-nowrap text-gray-700">
-        {recording.name || "Sem título"}
+      <TableCell className="max-w-[200px] py-2 text-start text-sm font-semibold text-gray-700">
+        <span className="block truncate" title={recording.name || "Sem título"}>
+          {recording.name || "Sem título"}
+        </span>
       </TableCell>
       <TableCell className="py-2 text-start text-sm whitespace-nowrap text-gray-500">
         {moment(recording.createdAt).format("DD/MM/YYYY - HH:mm") || "N/A"}
       </TableCell>
       <TableCell className="py-2 text-start text-sm whitespace-nowrap text-gray-500">
         {recording.duration || "00:00"}
+      </TableCell>
+      <TableCell className="py-2 text-start">
+        <span
+          className={cn(
+            "inline-flex items-center rounded-lg px-2.5 py-1 text-center text-xs font-medium ring-1",
+            transcriptionStatus.className,
+          )}
+        >
+          {transcriptionStatus.label}
+        </span>
       </TableCell>
       <TableCell className="py-2 pr-4 text-xs font-medium whitespace-nowrap text-zinc-400">
         <div className="flex items-center justify-end">

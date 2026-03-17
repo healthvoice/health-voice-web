@@ -9,10 +9,12 @@ import {
   CheckCircle2,
   ChevronDown,
   Lightbulb,
+  Loader2,
   Mic,
   Pause,
   Pen,
   RefreshCw,
+  Search,
   Send,
   TriangleAlert,
   UserPlus,
@@ -21,7 +23,9 @@ import {
   X,
 } from "lucide-react";
 import moment from "moment";
-import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
@@ -30,12 +34,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/blocks/dropdown-menu";
-import { CreateClientSheet } from "../ui/create-client-sheet";
+import {
+  useRecordingTour,
+  setTourFinalStepPending,
+} from "@/context/RecordingTourContext";
 import { useMediaRecorder } from "./use-media-recorder";
 import { useRecordingFlow } from "./use-recording-flow";
 import { useRecordingUpload } from "./use-recording-upload";
 
-// Função para derivar o tipo de mídia
 const getMediaTypeFromMetadata = (metadata: {
   recordingType: string;
   consultationType: string | null;
@@ -54,7 +60,11 @@ interface AudioRecorderProps {
   initialClientId?: string;
   initialReminderId?: string;
   forcePersonalType?: "REMINDER" | "STUDY" | "OTHER";
-  skipNewRecordingRequest?: boolean; // Se true, não escuta o newRecordingRequest do contexto
+  skipNewRecordingRequest?: boolean;
+  /** Quando definido, renderiza um único botão que abre direto Consulta (CLIENT) ou Pessoal (PERSONAL), sem dropdown */
+  forceType?: "CLIENT" | "PERSONAL";
+  /** Texto secundário exibido dentro do botão (ex.: "Lembretes, estudos, outros") */
+  customSubtitle?: string;
 }
 
 export function AudioRecorder({
@@ -66,19 +76,65 @@ export function AudioRecorder({
   initialReminderId,
   forcePersonalType,
   skipNewRecordingRequest = false,
+  forceType,
+  customSubtitle,
 }: AudioRecorderProps) {
-  const { GetRecordings, GetReminders, clients, selectedClient, newRecordingRequest, resetNewRecordingRequest } = useGeneralContext();
+  const {
+    GetRecordings,
+    GetReminders,
+    clients,
+    selectedClient,
+    newRecordingRequest,
+    resetNewRecordingRequest,
+    GetClients,
+    setClients,
+  } = useGeneralContext();
   const { PostAPI } = useApiContext();
+  const router = useRouter();
+  const {
+    isTourActive,
+    startTour,
+    advanceToNextStep,
+    shouldRunTour,
+    getActiveIndex,
+    driverRef,
+    registerValidateAdvanceFromPatientStep,
+  } = useRecordingTour();
+  const tourAutoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTourStepRef = useRef<string>("");
   const { uploadMedia, formatDurationForAPI } = useRecordingUpload();
-  const [isCreateClientSheetOpen, setIsCreateClientSheetOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Image Carousel State (for save-dialog left panel)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const carouselImages = [
+    "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=1920&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=1920&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=1920&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1582750433449-648ed127bb54?q=80&w=1920&auto=format&fit=crop",
+  ];
   const [tempCreatedClient, setTempCreatedClient] =
     useState<ClientProps | null>(null);
   const [pendingClientName, setPendingClientName] = useState<string | null>(
     null,
-  ); // New strategy
+  );
   const resetRecorderRef = useRef(() => {});
+
+  // Inline patient creation states
+  const [patientSearch, setPatientSearch] = useState("");
+  const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+  const [newPatientName, setNewPatientName] = useState("");
+  const [newPatientDescription, setNewPatientDescription] = useState("");
+  const [newPatientBirthDate, setNewPatientBirthDate] = useState("");
+  const [isCreatingPatientLoading, setIsCreatingPatientLoading] =
+    useState(false);
+
+  /** Modo simplificado: lembrete (só botão) ou personal (só Estudos/Outros). Usa o mesmo layout da nova gravação (carrossel + stepper). */
+  const [simplifiedDialogMode, setSimplifiedDialogMode] = useState<
+    "lembrete" | "personal" | null
+  >(null);
+
   const {
     currentStep,
     setCurrentStep,
@@ -90,14 +146,14 @@ export function AudioRecorder({
     resetFlow: originalResetFlow,
     openSaveDialog,
   } = useRecordingFlow(resetRecorderRef.current);
+
   useEffect(() => {
     if (pendingClientName && clients.length > 0) {
       const found = clients.find((c) => c.name === pendingClientName);
       if (found) {
-        console.log("DEBUG: Found pending client in list:", found);
         updateMetadata({ selectedClientId: found.id });
-        setPendingClientName(null); // Clear pending
-        setTempCreatedClient(null); // Clear temp fallback if real one exists
+        setPendingClientName(null);
+        setTempCreatedClient(null);
       }
     }
   }, [clients, pendingClientName, updateMetadata]);
@@ -106,30 +162,54 @@ export function AudioRecorder({
     setMounted(true);
   }, []);
 
+  // Desabilita o scroll do site quando a modal do gravador estiver aberta (fundo fixo)
+  useEffect(() => {
+    const isModalOpen = currentStep !== "idle";
+    if (isModalOpen) {
+      const scrollY = window.scrollY;
+      const html = document.documentElement;
+      const body = document.body;
+      const prevHtmlOverflow = html.style.overflow;
+      const prevBodyOverflow = body.style.overflow;
+      const prevBodyPosition = body.style.position;
+      const prevBodyTop = body.style.top;
+      const prevBodyLeft = body.style.left;
+      const prevBodyRight = body.style.right;
+      const prevBodyWidth = body.style.width;
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+      body.style.position = "fixed";
+      body.style.top = `-${scrollY}px`;
+      body.style.left = "0";
+      body.style.right = "0";
+      body.style.width = "100%";
+      return () => {
+        html.style.overflow = prevHtmlOverflow;
+        body.style.overflow = prevBodyOverflow;
+        body.style.position = prevBodyPosition;
+        body.style.top = prevBodyTop;
+        body.style.left = prevBodyLeft;
+        body.style.right = prevBodyRight;
+        body.style.width = prevBodyWidth;
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [currentStep]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % carouselImages.length);
+    }, 1400);
+    return () => clearInterval(timer);
+  }, []);
+
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const audioPreviewRef = useRef<HTMLAudioElement>(null);
 
-  // 1. Declarar o recorder (passando uma função vazia ou null no onReset)
-  // Como useMediaRecorder não depende de nada do useRecordingFlow,
-  // podemos declará-lo antes, usando um valor de placeholder para o mediaType inicial.
-  // NO ENTANTO, para manter a lógica de mediaType derivado, vamos usar o padrão de useRef para onReset.
-
-  // --- Ajuste para resolver o Block-scoped variable error ---
-  // A função resetFlow (dentro de useRecordingFlow) PRECISA da função resetRecording (dentro de recorder).
-  // 1. Declaramos uma função de reset de placeholder.
-  // 2. Passamos o placeholder para useRecordingFlow.
-  // 3. Declaramos o recorder.
-  // 4. Atualizamos o placeholder para a função real do recorder.
-
-  // Placeholder para recorder.resetRecording
-
-  // ← Passando o placeholder
-
-  // NOVO: Derivando o tipo de mídia, agora que 'metadata' está disponível
   const currentMediaType = getMediaTypeFromMetadata(metadata);
 
   const recorder = useMediaRecorder({
-    mediaType: currentMediaType, // ← USANDO O TIPO DERIVADO
+    mediaType: currentMediaType,
     onComplete: undefined,
     onError: (error) => {
       setError(error.message);
@@ -137,23 +217,18 @@ export function AudioRecorder({
     },
   });
 
-  // O Efeito colateral: Atualizar a referência com a função real do recorder
-  // para que resetFlow use a função correta. Isso é seguro porque recorder é
-  // estável (useMediaRecorder retorna um objeto estável com useCallback dentro).
   useEffect(() => {
     resetRecorderRef.current = recorder.resetRecording;
   }, [recorder.resetRecording]);
-  // -------------------------------------------------------------
 
-  // Wrapper para resetFlow que adiciona tracking quando há gravação pendente
   const resetFlow = useCallback(() => {
-    // Verificar se há gravação pendente (não enviada)
-    const hasPendingRecording = 
-      recorder.mediaBlob && 
-      (currentStep === "preview" || currentStep === "save-dialog" || currentStep === "recording");
+    const hasPendingRecording =
+      recorder.mediaBlob &&
+      (currentStep === "preview" ||
+        currentStep === "save-dialog" ||
+        currentStep === "recording");
 
     if (hasPendingRecording) {
-      // Tracking de cancelamento de gravação
       trackAction(
         {
           actionType: UserActionType.RECORDING_CANCELLED,
@@ -166,17 +241,30 @@ export function AudioRecorder({
             step: currentStep,
           },
         },
-        PostAPI
+        PostAPI,
       ).catch((error) => {
-        console.warn('Erro ao registrar tracking de cancelamento:', error);
+        console.warn("Erro ao registrar tracking de cancelamento:", error);
       });
     }
 
-    // Chamar o resetFlow original
-    originalResetFlow();
-  }, [recorder.mediaBlob, recorder.duration, currentStep, metadata, PostAPI, originalResetFlow]);
+    // Reset inline patient states
+    setPatientSearch("");
+    setIsCreatingPatient(false);
+    setNewPatientName("");
+    setNewPatientDescription("");
+    setNewPatientBirthDate("");
+    setSimplifiedDialogMode(null);
 
-  // MODIFICADO: Recebe o finalMediaType como parâmetro
+    originalResetFlow();
+  }, [
+    recorder.mediaBlob,
+    recorder.duration,
+    currentStep,
+    metadata,
+    PostAPI,
+    originalResetFlow,
+  ]);
+
   const handleRecordingComplete = async (
     blob: Blob,
     duration: number,
@@ -185,14 +273,14 @@ export function AudioRecorder({
     try {
       setCurrentStep("processing");
 
-      const uploadedUrl = await uploadMedia(blob, finalMediaType); // Usa finalMediaType
+      const uploadedUrl = await uploadMedia(blob, finalMediaType);
 
       const payload = {
         name: metadata.name.trim() || getDerivedTitle(),
         description: metadata.description || getDerivedDescription(),
         duration: formatDurationForAPI(duration),
         seconds: duration,
-        audioUrl: uploadedUrl, // Usa finalMediaType
+        audioUrl: uploadedUrl,
         type:
           metadata.recordingType === "PERSONAL"
             ? metadata.personalRecordingType
@@ -205,9 +293,7 @@ export function AudioRecorder({
           : {}),
       };
 
-      console.log("payload", payload);
       const response = await PostAPI("/recording", payload, true);
-      console.log("response", response);
 
       if (response?.status >= 400) {
         const errorMessage = handleApiError(
@@ -216,7 +302,7 @@ export function AudioRecorder({
         );
         setError(errorMessage);
         toast.error(errorMessage);
-        setCurrentStep("preview"); // Return to preview to allow retry
+        setCurrentStep("preview");
         return;
       }
 
@@ -227,6 +313,10 @@ export function AudioRecorder({
         GetReminders();
       }
 
+      if (isTourActive) {
+        setTourFinalStepPending();
+        router.push("/recordings");
+      }
       resetFlow();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -234,8 +324,7 @@ export function AudioRecorder({
         error.message || "Erro ao salvar gravação. Tente novamente.";
       setError(errorMessage);
       toast.error(errorMessage);
-      setCurrentStep("preview"); // Return to preview to allow retry
-      // DO NOT call resetFlow() - keep the modal open with the recording
+      setCurrentStep("preview");
     }
   };
 
@@ -249,8 +338,76 @@ export function AudioRecorder({
     }
   }, [recorder.mediaBlob, recorder.isRecording, currentStep]);
 
+  // Tour: ao abrir o form de criação inline (step 3 → 4), avança para "Nome do paciente"
   useEffect(() => {
-    // CORRIGIDO: Usa currentMediaType
+    if (!isTourActive || !isCreatingPatient) return;
+    const active = getActiveIndex();
+    if (active !== 3) return;
+    const t = setTimeout(() => {
+      advanceToNextStep();
+      setTimeout(() => {
+        driverRef.current?.refresh();
+        setTimeout(() => driverRef.current?.refresh(), 400);
+      }, 300);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [
+    isCreatingPatient,
+    isTourActive,
+    getActiveIndex,
+    advanceToNextStep,
+    driverRef,
+  ]);
+
+  // Tour: avançar para o step correto ao mudar de tela
+  useEffect(() => {
+    if (!isTourActive) return;
+    if (
+      currentStep === "instructions" &&
+      lastTourStepRef.current !== "instructions"
+    ) {
+      lastTourStepRef.current = "instructions";
+      // Delay para a tela de instruções renderizar antes do tour destacar o passo 7 (evita popover no canto)
+      setTimeout(() => advanceToNextStep(), 550);
+    }
+    if (
+      currentStep === "recording" &&
+      lastTourStepRef.current !== "recording"
+    ) {
+      lastTourStepRef.current = "recording";
+      // Só avança se ainda estiver no passo 8 (Iniciar gravação); o contexto já avança 8→9 ao clicar
+      if (getActiveIndex() === 8) {
+        setTimeout(() => advanceToNextStep(), 400);
+      }
+    }
+    if (currentStep === "preview" && lastTourStepRef.current !== "preview") {
+      lastTourStepRef.current = "preview";
+      setTimeout(() => advanceToNextStep(), 400);
+    }
+  }, [currentStep, isTourActive, advanceToNextStep, getActiveIndex]);
+
+  // Tour: auto-stop gravação após 10 segundos
+  useEffect(() => {
+    if (currentStep !== "recording" || !isTourActive) {
+      if (tourAutoStopRef.current) {
+        clearTimeout(tourAutoStopRef.current);
+        tourAutoStopRef.current = null;
+      }
+      return;
+    }
+    tourAutoStopRef.current = setTimeout(() => {
+      recorder.stopRecording();
+      tourAutoStopRef.current = null;
+    }, 10000);
+    return () => {
+      if (tourAutoStopRef.current) {
+        clearTimeout(tourAutoStopRef.current);
+        tourAutoStopRef.current = null;
+      }
+    };
+  }, [currentStep, isTourActive, recorder]);
+
+  useEffect(() => {
     if (currentStep === "preview" && recorder.mediaUrl) {
       if (currentMediaType === "video" && videoPreviewRef.current) {
         videoPreviewRef.current.src = recorder.mediaUrl;
@@ -260,21 +417,51 @@ export function AudioRecorder({
         audioPreviewRef.current.load();
       }
     }
-  }, [currentStep, recorder.mediaUrl, currentMediaType]); // ← ADICIONA currentMediaType como dependência
+  }, [currentStep, recorder.mediaUrl, currentMediaType]);
 
   const handleDropdownOpenChange = (open: boolean) => {
-    if (open && skipToClient) {
+    if (open && (skipToClient || forceType === "CLIENT")) {
       openSaveDialog("CLIENT");
+      // Tour passo 0 → 1: sidebar usa forceType="CLIENT", então precisamos avançar aqui
+      if (isTourActive && getActiveIndex() === 0) {
+        updateMetadata({ consultationType: "ONLINE" });
+        // Atrasa para o modal abrir; depois refresh em dois momentos para o popover não bugar no canto
+        setTimeout(() => {
+          advanceToNextStep();
+          setTimeout(() => {
+            driverRef.current?.refresh();
+            setTimeout(() => driverRef.current?.refresh(), 500);
+          }, 400);
+        }, 550);
+      }
     } else if (open && initialReminderId) {
       openSaveDialog("PERSONAL", "REMINDER");
+    } else if (open && forceType === "PERSONAL") {
+      openSaveDialog("PERSONAL");
     } else {
       setIsDropdownOpen(open);
+      if (open && !skipToClient && !initialReminderId && !forceType) {
+        if (isTourActive && getActiveIndex() === 0) {
+          // Abre o modal de gravação (Consulta) para que o passo seguinte (Nome da gravação) exista no DOM
+          setIsDropdownOpen(false);
+          openSaveDialog("CLIENT");
+          updateMetadata({ consultationType: "ONLINE" });
+          setTimeout(() => {
+            advanceToNextStep();
+            setTimeout(() => {
+              driverRef.current?.refresh();
+              setTimeout(() => driverRef.current?.refresh(), 500);
+            }, 400);
+          }, 550);
+        } else if (!isTourActive && shouldRunTour()) {
+          startTour(1);
+        }
+      }
     }
   };
 
   const getDerivedTitle = () => {
     if (metadata.name) return metadata.name;
-
     if (metadata.recordingType === "CLIENT") {
       return "Gravação do Paciente";
     } else {
@@ -289,9 +476,7 @@ export function AudioRecorder({
 
   const getDerivedDescription = () => {
     if (metadata.description) return metadata.description;
-
     const date = moment().format("DD/MM/YYYY HH:mm:ss");
-
     if (metadata.recordingType === "CLIENT") {
       const type =
         metadata.consultationType === "IN_PERSON" ? "presencial" : "online";
@@ -311,12 +496,8 @@ export function AudioRecorder({
 
   const handleStartRecording = async () => {
     if (!validateForm()) return;
-
-    // A lógica de setMediaType foi removida.
-    // O tipo de gravação é determinado por currentMediaType.
-
+    setSimplifiedDialogMode(null);
     if (currentMediaType === "video") {
-      // Usa currentMediaType
       setCurrentStep("instructions");
     } else {
       try {
@@ -325,15 +506,13 @@ export function AudioRecorder({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         let errorMessage = "Erro ao iniciar gravação";
-
         if (error.name === "NotAllowedError") {
           errorMessage = "Permissão negada. Permita o acesso ao microfone.";
         } else if (error.name === "NotFoundError") {
           errorMessage = "Nenhum microfone encontrado.";
         } else if (error.message) {
-          errorMessage = error.message; // Custom error messages
+          errorMessage = error.message;
         }
-
         setError(errorMessage);
         setCurrentStep("save-dialog");
       }
@@ -347,19 +526,16 @@ export function AudioRecorder({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       let errorMessage = "Erro ao iniciar gravação de vídeo";
-
       if (error.name === "NotAllowedError") {
         errorMessage = "Permissão negada. Permita o compartilhamento de tela.";
       } else if (error.message) {
         errorMessage = error.message;
       }
-
       setError(errorMessage);
       setCurrentStep("save-dialog");
     }
   };
 
-  // CORRIGIDO: Passa currentMediaType para handleRecordingComplete
   const handleConfirmRecording = () => {
     if (recorder.mediaBlob) {
       handleRecordingComplete(
@@ -381,24 +557,170 @@ export function AudioRecorder({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Inline patient creation handler
+  const handleInlineCreatePatient = async () => {
+    if (!newPatientName.trim() || newPatientName.trim().length < 2) {
+      toast.error("Nome deve ter pelo menos 2 caracteres");
+      return;
+    }
+    setIsCreatingPatientLoading(true);
+    try {
+      const data = await PostAPI(
+        "/client",
+        {
+          name: newPatientName.trim(),
+          description: newPatientDescription.trim() || null,
+          birthDate: newPatientBirthDate.trim() || null,
+        },
+        true,
+      );
+      if (data.status === 200) {
+        toast.success("Paciente criado com sucesso!");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawClient = (data.body.client || data.body) as any;
+        const newClient = {
+          ...rawClient,
+          id: rawClient.id || rawClient._id,
+          name: newPatientName.trim(),
+        };
+        setClients((prev) => [newClient, ...prev]);
+        await GetClients();
+        updateMetadata({ selectedClientId: newClient.id });
+        setPendingClientName(newPatientName.trim());
+        setTempCreatedClient(newClient);
+        setNewPatientName("");
+        setNewPatientDescription("");
+        setNewPatientBirthDate("");
+        setIsCreatingPatient(false);
+
+        if (isTourActive) {
+          setTimeout(() => {
+            advanceToNextStep();
+            setTimeout(() => driverRef.current?.refresh(), 200);
+          }, 500);
+        }
+      } else {
+        const errorMessage = handleApiError(data, "Falha ao criar paciente.");
+        toast.error(errorMessage);
+      }
+    } catch {
+      toast.error("Erro ao criar paciente.");
+    }
+    setIsCreatingPatientLoading(false);
+  };
+
+  // Filtered clients for search
+  const filteredClients = useMemo(() => {
+    if (!patientSearch.trim()) return clients;
+    return clients.filter((c) =>
+      c.name.toLowerCase().includes(patientSearch.toLowerCase()),
+    );
+  }, [clients, patientSearch]);
+
+  // Step progress for the unified modal
+  const stepProgress = useMemo(() => {
+    const isOnline =
+      metadata.recordingType === "CLIENT" &&
+      metadata.consultationType === "ONLINE";
+    const totalSteps = isOnline ? 4 : 3;
+
+    const saveDialogTitle =
+      simplifiedDialogMode === "lembrete"
+        ? "Gravar Lembrete"
+        : simplifiedDialogMode === "personal"
+          ? "Gravação Pessoal"
+          : metadata.recordingType === "CLIENT"
+            ? "Nova Consulta"
+            : "Nova Gravação";
+
+    const configs: Record<
+      string,
+      { index: number; title: string; subtitle: string }
+    > = {
+      "save-dialog": {
+        index: 0,
+        title: saveDialogTitle,
+        subtitle: `Passo 1 de ${totalSteps}`,
+      },
+      instructions: {
+        index: 1,
+        title: "Instruções",
+        subtitle: `Passo 2 de ${totalSteps}`,
+      },
+      recording: {
+        index: isOnline ? 2 : 1,
+        title: "Gravando...",
+        subtitle: `Passo ${isOnline ? 3 : 2} de ${totalSteps}`,
+      },
+      preview: {
+        index: totalSteps - 1,
+        title: "Revisar Gravação",
+        subtitle: `Passo ${totalSteps} de ${totalSteps}`,
+      },
+      processing: {
+        index: totalSteps - 1,
+        title: "Processando...",
+        subtitle: "Enviando gravação...",
+      },
+    };
+
+    const config = configs[currentStep] || {
+      index: 0,
+      title: "",
+      subtitle: "",
+    };
+    return {
+      ...config,
+      totalSteps,
+      canClose:
+        !isTourActive &&
+        currentStep !== "recording" &&
+        currentStep !== "processing",
+    };
+  }, [
+    currentStep,
+    metadata.recordingType,
+    metadata.consultationType,
+    isTourActive,
+    simplifiedDialogMode,
+  ]);
+
   useEffect(() => {
     resetFlow();
   }, []);
 
-  // Escutar o newRecordingRequest do contexto para abrir automaticamente
-  // Apenas instâncias sem skipNewRecordingRequest processam os requests
   useEffect(() => {
-    if (skipNewRecordingRequest || !newRecordingRequest || currentStep !== "idle") {
+    registerValidateAdvanceFromPatientStep(() => !!metadata.selectedClientId);
+  }, [metadata.selectedClientId, registerValidateAdvanceFromPatientStep]);
+
+  useEffect(() => {
+    if (
+      skipNewRecordingRequest ||
+      !newRecordingRequest ||
+      currentStep !== "idle"
+    ) {
       return;
     }
-    
-    const { type, subType } = newRecordingRequest;
-    
-    // Reset o request ANTES de abrir a sheet
+    const { type, subType, simplifiedLembrete, simplifiedPersonal } =
+      newRecordingRequest;
     resetNewRecordingRequest();
-    
-    if (type === "PERSONAL" && subType) {
-      // Gravação pessoal com tipo específico (REMINDER, STUDY, OTHER)
+    if (type === "PERSONAL" && simplifiedLembrete) {
+      updateMetadata({
+        recordingType: "PERSONAL",
+        personalRecordingType: "REMINDER",
+        consultationType: null,
+      });
+      setSimplifiedDialogMode("lembrete");
+      setCurrentStep("save-dialog");
+    } else if (type === "PERSONAL" && simplifiedPersonal) {
+      updateMetadata({
+        recordingType: "PERSONAL",
+        personalRecordingType: null,
+        consultationType: null,
+      });
+      setSimplifiedDialogMode("personal");
+      setCurrentStep("save-dialog");
+    } else if (type === "PERSONAL" && subType) {
       updateMetadata({
         recordingType: "PERSONAL",
         personalRecordingType: subType,
@@ -406,21 +728,25 @@ export function AudioRecorder({
       });
       setCurrentStep("save-dialog");
     } else if (type === "CLIENT") {
-      // Consulta - abre o dialog de cliente
       openSaveDialog("CLIENT");
     }
-  }, [newRecordingRequest, currentStep, skipNewRecordingRequest, resetNewRecordingRequest, updateMetadata, openSaveDialog]);
+  }, [
+    newRecordingRequest,
+    currentStep,
+    skipNewRecordingRequest,
+    resetNewRecordingRequest,
+    updateMetadata,
+    openSaveDialog,
+  ]);
 
   useEffect(() => {
     const isSheetOpen = currentStep !== "idle";
     const body = document.body;
-
     if (isSheetOpen) {
       body.classList.add("no-scroll");
     } else {
       body.classList.remove("no-scroll");
     }
-
     return () => {
       body.classList.remove("no-scroll");
     };
@@ -428,7 +754,6 @@ export function AudioRecorder({
 
   useEffect(() => {
     if (skipToClient) {
-      // Se initialClientId foi fornecido, usa ele; senão usa o selectedClient do contexto
       const clientId = initialClientId || selectedClient?.id;
       if (clientId) {
         updateMetadata({ ...metadata, selectedClientId: clientId });
@@ -436,22 +761,37 @@ export function AudioRecorder({
     }
   }, [skipToClient, initialClientId, selectedClient?.id]);
 
-  // Renderizar botão customizado quando skipToClient ou initialReminderId (sem dropdown)
   const renderTriggerButton = () => {
     const IconComponent = CustomIcon || Mic;
     const label = customLabel || "Nova Gravação";
 
-    if (skipToClient) {
+    if (skipToClient || forceType === "CLIENT" || forceType === "PERSONAL") {
+      const hasSubtitle = Boolean(customSubtitle?.trim());
       return (
         <div
+          data-tour={
+            forceType === "CLIENT" || skipToClient
+              ? "nova-gravacao-trigger"
+              : undefined
+          }
           onClick={() => handleDropdownOpenChange(true)}
           className={cn(
-            "flex cursor-pointer items-center gap-2 rounded-3xl px-4 py-2 transition",
+            "flex cursor-pointer items-center gap-2 rounded-xl px-4 transition",
+            hasSubtitle ? "py-3" : "py-2",
             buttonClassName,
           )}
         >
-          <IconComponent size={20} />
-          {label}
+          <div className="flex h-9 shrink-0 items-center justify-center rounded-lg">
+            <IconComponent size={18} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+            <span className="text-sm leading-tight font-semibold">{label}</span>
+            {hasSubtitle && (
+              <span className="text-[11px] leading-tight opacity-80">
+                {customSubtitle}
+              </span>
+            )}
+          </div>
         </div>
       );
     }
@@ -478,6 +818,7 @@ export function AudioRecorder({
       >
         <DropdownMenuTrigger asChild>
           <div
+            data-tour="nova-gravacao-trigger"
             className={cn(
               "flex items-center gap-2 rounded-3xl px-4 py-2 transition",
               buttonClassName,
@@ -488,8 +829,17 @@ export function AudioRecorder({
             <ChevronDown size={20} />
           </div>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onSelect={() => openSaveDialog("CLIENT")}>
+        <DropdownMenuContent side="right" align="start" className="z-[10050]">
+          <DropdownMenuItem
+            data-tour="consulta"
+            onSelect={() => {
+              openSaveDialog("CLIENT");
+              if (isTourActive) {
+                updateMetadata({ consultationType: "ONLINE" });
+                setTimeout(() => advanceToNextStep(), 350);
+              }
+            }}
+          >
             <div className="flex items-center gap-2">
               <Video size={18} className="text-blue-600" />
               <div>
@@ -514,6 +864,7 @@ export function AudioRecorder({
     );
   };
 
+  // ─── RENDER ──────────────────────────────────────────────────────
   return (
     <>
       {currentStep === "idle" && renderTriggerButton()}
@@ -523,641 +874,929 @@ export function AudioRecorder({
           <div
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                if (currentStep === "recording") return;
+                if (currentStep === "recording" || currentStep === "processing")
+                  return;
+                if (isTourActive) return;
                 resetFlow();
               }
             }}
             className={cn(
-              "bg-opacity-50 fixed inset-0 z-[99999] flex items-end justify-center bg-black/20 backdrop-blur-xs",
+              "fixed inset-0 flex items-center justify-center p-4",
               currentStep === "idle" && "hidden",
+              isTourActive ? "z-[9998]" : "z-[99999]",
+              "bg-black/40 backdrop-blur-sm transition-all duration-300",
             )}
           >
-            {currentStep === "save-dialog" && (
-              <div className="animate-slide-up w-full max-w-2xl rounded-t-3xl bg-white p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    {metadata.recordingType === "CLIENT"
-                      ? "Nova Consulta"
-                      : "Nova Gravação Pessoal"}
-                  </h2>
-                  <button
-                    onClick={resetFlow}
-                    className="text-gray-500 transition-colors hover:text-gray-700"
-                  >
-                    <X size={24} />
-                  </button>
+            {/* ── Unified Modal Container ── */}
+            <div
+              className={cn(
+                "animate-in fade-in zoom-in-95 flex w-full overflow-hidden rounded-3xl bg-white shadow-2xl duration-300",
+                currentStep === "save-dialog"
+                  ? "min-h-[600px] max-w-5xl flex-row"
+                  : "max-w-lg flex-col",
+              )}
+              style={currentStep !== "save-dialog" ? { maxHeight: "85vh" } : {}}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ── Left Side: Image Carousel (save-dialog only) ── */}
+
+              {/* ── Right Side / Full content ── */}
+              <div
+                className={cn(
+                  "flex flex-col",
+                  currentStep === "save-dialog" ? "w-full md:w-1/2" : "w-full",
+                )}
+              >
+                {/* ── Header ── */}
+                <div className="flex items-center justify-between border-b border-gray-100 px-6 pt-5 pb-3">
+                  <div>
+                    {currentStep === "save-dialog" && (
+                      <div className="mb-4">
+                        <Image
+                          src="/logos/logo-dark.png"
+                          alt="Health Voice Logo"
+                          width={150}
+                          height={40}
+                          className="h-auto max-h-[36px] w-auto"
+                        />
+                      </div>
+                    )}
+                    <h2 className="text-lg font-bold text-gray-800">
+                      {stepProgress.title}
+                    </h2>
+                    <p className="text-xs text-gray-400">
+                      {stepProgress.subtitle}
+                    </p>
+                  </div>
+                  {stepProgress.canClose && (
+                    <button
+                      onClick={resetFlow}
+                      className="self-start rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+                    >
+                      <X size={20} className="text-gray-400" />
+                    </button>
+                  )}
                 </div>
 
-                {error && (
-                  <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
-                    <AlertCircle
-                      className="mt-0.5 flex-shrink-0 text-red-500"
-                      size={20}
-                    />
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Nome da Gravação
-                    </label>
-                    <input
-                      type="text"
-                      value={metadata.name}
-                      onChange={(e) => updateMetadata({ name: e.target.value })}
-                      placeholder={
-                        metadata.recordingType === "CLIENT"
-                          ? "Ex: Consulta - João Silva"
-                          : metadata.personalRecordingType === "REMINDER"
-                            ? "Ex: Lembrete - Assinar documento"
-                            : metadata.personalRecordingType === "STUDY"
-                              ? "Ex: Estudo - Análise de dados"
-                              : "Ex: Gravação pessoal"
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-black transition-all outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Descrição da Gravação
-                    </label>
-                    <textarea
-                      value={metadata.description}
-                      onChange={(e) =>
-                        updateMetadata({ description: e.target.value })
-                      }
-                      onWheel={(e) => e.stopPropagation()}
-                      placeholder="Descrição"
-                      className="h-32 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-black transition-all outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {metadata.recordingType === "PERSONAL" && !initialReminderId && (
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Tipo de Gravação
-                      </label>
-                      <div className="grid grid-cols-3 gap-3">
-                        <button
-                          onClick={() =>
-                            updateMetadata({
-                              personalRecordingType: "REMINDER",
-                            })
-                          }
-                          className={cn(
-                            "group rounded-lg border-2 p-4 transition-all",
-                            metadata.personalRecordingType === "REMINDER"
-                              ? "border-blue-600 bg-blue-50"
-                              : "border-gray-300 hover:border-blue-600 hover:bg-blue-50",
-                          )}
-                        >
-                          <Lightbulb
-                            size={24}
-                            className={cn(
-                              "mx-auto mb-2 transition-colors",
-                              metadata.personalRecordingType === "REMINDER"
-                                ? "text-blue-600"
-                                : "text-gray-600 group-hover:text-blue-600",
-                            )}
-                          />
-                          <p
-                            className={cn(
-                              "font-semibold transition-colors",
-                              metadata.personalRecordingType === "REMINDER"
-                                ? "text-blue-600"
-                                : "text-gray-800 group-hover:text-blue-600",
-                            )}
-                          >
-                            Lembrete
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Apenas áudio
-                          </p>
-                        </button>
-                        <button
-                          onClick={() =>
-                            updateMetadata({ personalRecordingType: "STUDY" })
-                          }
-                          className={cn(
-                            "group rounded-lg border-2 p-4 transition-all",
-                            metadata.personalRecordingType === "STUDY"
-                              ? "border-blue-600 bg-blue-50"
-                              : "border-gray-300 hover:border-green-600 hover:bg-green-50",
-                          )}
-                        >
-                          <Pen
-                            size={24}
-                            className={cn(
-                              "mx-auto mb-2 transition-colors",
-                              metadata.personalRecordingType === "STUDY"
-                                ? "text-blue-600"
-                                : "text-gray-600 group-hover:text-green-600",
-                            )}
-                          />
-                          <p
-                            className={cn(
-                              "font-semibold transition-colors",
-                              metadata.personalRecordingType === "STUDY"
-                                ? "text-blue-600"
-                                : "text-gray-800 group-hover:text-green-600",
-                            )}
-                          >
-                            Estudos
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Apenas áudio
-                          </p>
-                        </button>
-                        <button
-                          onClick={() =>
-                            updateMetadata({ personalRecordingType: "OTHER" })
-                          }
-                          className={cn(
-                            "group rounded-lg border-2 p-4 transition-all",
-                            metadata.personalRecordingType === "OTHER"
-                              ? "border-blue-600 bg-blue-50"
-                              : "border-gray-300 hover:border-orange-600 hover:bg-orange-50",
-                          )}
-                        >
-                          <TriangleAlert
-                            size={24}
-                            className={cn(
-                              "mx-auto mb-2 transition-colors",
-                              metadata.personalRecordingType === "OTHER"
-                                ? "text-blue-600"
-                                : "text-gray-600 group-hover:text-orange-600",
-                            )}
-                          />
-                          <p
-                            className={cn(
-                              "font-semibold transition-colors",
-                              metadata.personalRecordingType === "OTHER"
-                                ? "text-blue-600"
-                                : "text-gray-800 group-hover:text-orange-600",
-                            )}
-                          >
-                            Outro
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Apenas áudio
-                          </p>
-                        </button>
-                      </div>
-                    </div>
+                {/* ── Progress Bar ── */}
+                <div className="flex gap-1.5 px-6 pt-3 pb-1">
+                  {Array.from({ length: stepProgress.totalSteps }).map(
+                    (_, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "h-1 flex-1 rounded-full transition-all duration-500",
+                          i <= stepProgress.index
+                            ? "bg-blue-600"
+                            : "bg-gray-200",
+                        )}
+                      />
+                    ),
                   )}
+                </div>
 
-                  {metadata.recordingType === "CLIENT" && (
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Tipo de Consulta
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() =>
-                            updateMetadata({ consultationType: "IN_PERSON" })
-                          }
-                          className={cn(
-                            "group rounded-lg border-2 p-4 transition-all",
-                            metadata.consultationType === "IN_PERSON"
-                              ? "border-blue-600 bg-blue-50"
-                              : "border-gray-300 hover:border-blue-600 hover:bg-blue-50",
-                          )}
-                        >
-                          <Mic
-                            size={24}
-                            className={cn(
-                              "mx-auto mb-2 transition-colors",
-                              metadata.consultationType === "IN_PERSON"
-                                ? "text-blue-600"
-                                : "text-gray-600 group-hover:text-blue-600",
-                            )}
+                {/* ── Scrollable Content ── */}
+                <div className="flex-1 overflow-y-auto px-6 py-5">
+                  {/* ═══ SAVE DIALOG ═══ */}
+                  {currentStep === "save-dialog" && (
+                    <>
+                      {error && (
+                        <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                          <AlertCircle
+                            className="mt-0.5 flex-shrink-0 text-red-500"
+                            size={18}
                           />
-                          <p
-                            className={cn(
-                              "font-semibold transition-colors",
-                              metadata.consultationType === "IN_PERSON"
-                                ? "text-blue-600"
-                                : "text-gray-800 group-hover:text-blue-600",
-                            )}
-                          >
-                            Presencial
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Apenas áudio
-                          </p>
-                        </button>
+                          <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                      )}
 
-                        <button
-                          onClick={() =>
-                            updateMetadata({ consultationType: "ONLINE" })
-                          }
-                          className={cn(
-                            "group w-full flex-1 rounded-lg border-2 p-4 transition-all",
-                            metadata.consultationType === "ONLINE"
-                              ? "border-blue-600 bg-blue-50"
-                              : "border-gray-300 hover:border-blue-600 hover:bg-blue-50",
-                          )}
-                        >
-                          <Video
-                            size={24}
-                            className={cn(
-                              "mx-auto mb-2 transition-colors",
-                              metadata.consultationType === "ONLINE"
-                                ? "text-blue-600"
-                                : "text-gray-600 group-hover:text-blue-600",
-                            )}
-                          />
-                          <p
-                            className={cn(
-                              "font-semibold transition-colors",
-                              metadata.consultationType === "ONLINE"
-                                ? "text-blue-600"
-                                : "text-gray-800 group-hover:text-blue-600",
-                            )}
-                          >
-                            Online
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Vídeo + áudio
-                          </p>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {metadata.recordingType === "CLIENT" && (
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Selecionar Paciente
-                      </label>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <div className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-3">
-                            <input
-                              type="text"
-                              value={(() => {
-                                const foundInList = clients.find(
-                                  (c) => c.id === metadata.selectedClientId,
-                                );
-                                const foundInTemp =
-                                  tempCreatedClient?.id ===
-                                  metadata.selectedClientId
-                                    ? tempCreatedClient
-                                    : null;
-
-                                return metadata.selectedClientId
-                                  ? foundInList?.name || foundInTemp?.name || ""
-                                  : "Selecione um Paciente";
-                              })()}
-                              className="w-full cursor-pointer text-black outline-none"
-                              required
-                              readOnly
-                            />
-                            <ChevronDown size={20} className="text-gray-600" />
+                      {/* Conteúdo simplificado: Gravar Lembrete */}
+                      {simplifiedDialogMode === "lembrete" && (
+                        <div className="space-y-5">
+                          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                            <p className="text-sm text-gray-700">
+                              Grave um áudio para seu lembrete. O tipo já está
+                              definido como <strong>Lembrete</strong>; ao clicar
+                              em iniciar você irá direto para a gravação.
+                            </p>
                           </div>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          side="top"
-                          className="z-[999999] h-80 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-scroll"
-                          onWheel={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenuItem
-                            onSelect={() => setIsCreateClientSheetOpen(true)}
-                            className="sticky top-0 z-10 mb-2 flex items-center justify-start gap-2 border-b border-gray-100 bg-white py-3 font-semibold text-blue-600 hover:bg-neutral-50"
-                          >
-                            <UserPlus size={16} />
-                            Cadastrar Novo Paciente
-                          </DropdownMenuItem>
-                          {clients.length !== 0 ? (
-                            clients.map((client, index) => (
-                              <DropdownMenuItem
-                                key={client.id || index}
-                                className={cn(
-                                  "hover:bg-neutral-200",
-                                  metadata.selectedClientId === client.id
-                                    ? "bg-neutral-200"
-                                    : "",
-                                )}
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={handleStartRecording}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99]"
+                            >
+                              <Mic size={20} />
+                              Iniciar Gravação
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Conteúdo simplificado: Gravação Pessoal (Estudos / Outros) */}
+                      {simplifiedDialogMode === "personal" && (
+                        <div className="space-y-5">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-600">
+                              Tipo de gravação
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                type="button"
                                 onClick={() =>
                                   updateMetadata({
-                                    selectedClientId: client.id,
+                                    personalRecordingType: "STUDY",
                                   })
                                 }
+                                className={cn(
+                                  "flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-3 transition-all",
+                                  metadata.personalRecordingType === "STUDY"
+                                    ? "border-blue-600 bg-blue-50 shadow-sm"
+                                    : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/50",
+                                )}
                               >
-                                {client?.name}
-                              </DropdownMenuItem>
-                            ))
-                          ) : (
-                            <div className="p-4 text-center text-sm text-gray-500">
-                              Nenhum paciente encontrado.
+                                <Pen
+                                  size={22}
+                                  className={
+                                    metadata.personalRecordingType === "STUDY"
+                                      ? "text-blue-600"
+                                      : "text-gray-400"
+                                  }
+                                />
+                                <span
+                                  className={cn(
+                                    "text-sm font-semibold",
+                                    metadata.personalRecordingType === "STUDY"
+                                      ? "text-blue-600"
+                                      : "text-gray-700",
+                                  )}
+                                >
+                                  Estudos
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateMetadata({
+                                    personalRecordingType: "OTHER",
+                                  })
+                                }
+                                className={cn(
+                                  "flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-3 transition-all",
+                                  metadata.personalRecordingType === "OTHER"
+                                    ? "border-blue-600 bg-blue-50 shadow-sm"
+                                    : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50",
+                                )}
+                              >
+                                <TriangleAlert
+                                  size={22}
+                                  className={
+                                    metadata.personalRecordingType === "OTHER"
+                                      ? "text-blue-600"
+                                      : "text-gray-400"
+                                  }
+                                />
+                                <span
+                                  className={cn(
+                                    "text-sm font-semibold",
+                                    metadata.personalRecordingType === "OTHER"
+                                      ? "text-blue-600"
+                                      : "text-gray-700",
+                                  )}
+                                >
+                                  Outros
+                                </span>
+                              </button>
                             </div>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                          </div>
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={handleStartRecording}
+                              disabled={!metadata.personalRecordingType}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+                            >
+                              <Mic size={20} />
+                              Iniciar Gravação
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Formulário completo (consulta ou pessoal com todos os campos) */}
+                      {!simplifiedDialogMode && (
+                        <>
+                          <div className="space-y-5">
+                            {/* Recording Name (optional) — first to match tour order */}
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-gray-600">
+                                Nome da Gravação{" "}
+                                <span className="font-normal text-gray-400">
+                                  (opcional)
+                                </span>
+                              </label>
+                              <input
+                                data-tour="recording-name"
+                                type="text"
+                                value={metadata.name}
+                                onChange={(e) =>
+                                  updateMetadata({ name: e.target.value })
+                                }
+                                placeholder={
+                                  metadata.recordingType === "CLIENT"
+                                    ? "Ex: Consulta - João Silva"
+                                    : metadata.personalRecordingType ===
+                                        "REMINDER"
+                                      ? "Ex: Lembrete - Assinar documento"
+                                      : metadata.personalRecordingType ===
+                                          "STUDY"
+                                        ? "Ex: Estudo - Análise de dados"
+                                        : "Ex: Gravação pessoal"
+                                }
+                                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+
+                            {/* Consultation Type (CLIENT) */}
+                            {metadata.recordingType === "CLIENT" && (
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-600">
+                                  Tipo de Consulta
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <button
+                                    onClick={() =>
+                                      updateMetadata({
+                                        consultationType: "IN_PERSON",
+                                      })
+                                    }
+                                    className={cn(
+                                      "flex items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all",
+                                      metadata.consultationType === "IN_PERSON"
+                                        ? "border-blue-600 bg-blue-50 shadow-sm"
+                                        : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/50",
+                                    )}
+                                  >
+                                    <Mic
+                                      size={20}
+                                      className={cn(
+                                        metadata.consultationType ===
+                                          "IN_PERSON"
+                                          ? "text-blue-600"
+                                          : "text-gray-400",
+                                      )}
+                                    />
+                                    <div className="text-left">
+                                      <p
+                                        className={cn(
+                                          "text-sm font-semibold",
+                                          metadata.consultationType ===
+                                            "IN_PERSON"
+                                            ? "text-blue-600"
+                                            : "text-gray-800",
+                                        )}
+                                      >
+                                        Presencial
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        Apenas áudio
+                                      </p>
+                                    </div>
+                                  </button>
+
+                                  <button
+                                    data-tour="consultation-online"
+                                    onClick={() =>
+                                      updateMetadata({
+                                        consultationType: "ONLINE",
+                                      })
+                                    }
+                                    className={cn(
+                                      "flex items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all",
+                                      metadata.consultationType === "ONLINE"
+                                        ? "border-blue-600 bg-blue-50 shadow-sm"
+                                        : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/50",
+                                    )}
+                                  >
+                                    <Video
+                                      size={20}
+                                      className={cn(
+                                        metadata.consultationType === "ONLINE"
+                                          ? "text-blue-600"
+                                          : "text-gray-400",
+                                      )}
+                                    />
+                                    <div className="text-left">
+                                      <p
+                                        className={cn(
+                                          "text-sm font-semibold",
+                                          metadata.consultationType === "ONLINE"
+                                            ? "text-blue-600"
+                                            : "text-gray-800",
+                                        )}
+                                      >
+                                        Online
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        Vídeo + áudio
+                                      </p>
+                                    </div>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Personal Recording Type */}
+                            {metadata.recordingType === "PERSONAL" &&
+                              !initialReminderId && (
+                                <div>
+                                  <label className="mb-2 block text-sm font-medium text-gray-600">
+                                    Tipo de Gravação
+                                  </label>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                      onClick={() =>
+                                        updateMetadata({
+                                          personalRecordingType: "REMINDER",
+                                        })
+                                      }
+                                      className={cn(
+                                        "flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 transition-all",
+                                        metadata.personalRecordingType ===
+                                          "REMINDER"
+                                          ? "border-blue-600 bg-blue-50 shadow-sm"
+                                          : "border-gray-200 hover:border-blue-300",
+                                      )}
+                                    >
+                                      <Lightbulb
+                                        size={20}
+                                        className={cn(
+                                          metadata.personalRecordingType ===
+                                            "REMINDER"
+                                            ? "text-blue-600"
+                                            : "text-gray-400",
+                                        )}
+                                      />
+                                      <span
+                                        className={cn(
+                                          "text-xs font-semibold",
+                                          metadata.personalRecordingType ===
+                                            "REMINDER"
+                                            ? "text-blue-600"
+                                            : "text-gray-700",
+                                        )}
+                                      >
+                                        Lembrete
+                                      </span>
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        updateMetadata({
+                                          personalRecordingType: "STUDY",
+                                        })
+                                      }
+                                      className={cn(
+                                        "flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 transition-all",
+                                        metadata.personalRecordingType ===
+                                          "STUDY"
+                                          ? "border-blue-600 bg-blue-50 shadow-sm"
+                                          : "border-gray-200 hover:border-green-300",
+                                      )}
+                                    >
+                                      <Pen
+                                        size={20}
+                                        className={cn(
+                                          metadata.personalRecordingType ===
+                                            "STUDY"
+                                            ? "text-blue-600"
+                                            : "text-gray-400",
+                                        )}
+                                      />
+                                      <span
+                                        className={cn(
+                                          "text-xs font-semibold",
+                                          metadata.personalRecordingType ===
+                                            "STUDY"
+                                            ? "text-blue-600"
+                                            : "text-gray-700",
+                                        )}
+                                      >
+                                        Estudos
+                                      </span>
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        updateMetadata({
+                                          personalRecordingType: "OTHER",
+                                        })
+                                      }
+                                      className={cn(
+                                        "flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 transition-all",
+                                        metadata.personalRecordingType ===
+                                          "OTHER"
+                                          ? "border-blue-600 bg-blue-50 shadow-sm"
+                                          : "border-gray-200 hover:border-orange-300",
+                                      )}
+                                    >
+                                      <TriangleAlert
+                                        size={20}
+                                        className={cn(
+                                          metadata.personalRecordingType ===
+                                            "OTHER"
+                                            ? "text-blue-600"
+                                            : "text-gray-400",
+                                        )}
+                                      />
+                                      <span
+                                        className={cn(
+                                          "text-xs font-semibold",
+                                          metadata.personalRecordingType ===
+                                            "OTHER"
+                                            ? "text-blue-600"
+                                            : "text-gray-700",
+                                        )}
+                                      >
+                                        Outro
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* ── Patient Selection (inline) ── */}
+                            {metadata.recordingType === "CLIENT" && (
+                              <div data-tour="patient-selector">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <label className="text-sm font-medium text-gray-600">
+                                    Paciente{" "}
+                                    <span className="text-red-400">*</span>
+                                  </label>
+                                  {!isCreatingPatient && (
+                                    <button
+                                      data-tour="cadastrar-novo-paciente-btn"
+                                      onClick={() => setIsCreatingPatient(true)}
+                                      className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
+                                    >
+                                      <UserPlus size={14} />
+                                      Cadastrar novo paciente
+                                    </button>
+                                  )}
+                                </div>
+
+                                {!isCreatingPatient ? (
+                                  <div className="overflow-hidden rounded-xl border border-gray-200">
+                                    {/* Search bar */}
+                                    <div className="relative border-b border-gray-100 bg-gray-50/50">
+                                      <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                      <input
+                                        value={patientSearch}
+                                        onChange={(e) =>
+                                          setPatientSearch(e.target.value)
+                                        }
+                                        placeholder="Buscar paciente..."
+                                        className="w-full bg-transparent py-2.5 pr-4 pl-10 text-sm outline-none placeholder:text-gray-400"
+                                      />
+                                    </div>
+
+                                    {/* Patient list */}
+                                    <div className="max-h-44 overflow-y-auto">
+                                      <button
+                                        style={{ display: "none" }}
+                                        aria-hidden
+                                      >
+                                        placeholder
+                                      </button>
+
+                                      {filteredClients.length > 0 ? (
+                                        filteredClients.map((client) => (
+                                          <button
+                                            key={client.id}
+                                            onClick={() =>
+                                              updateMetadata({
+                                                selectedClientId: client.id,
+                                              })
+                                            }
+                                            className={cn(
+                                              "flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors",
+                                              metadata.selectedClientId ===
+                                                client.id
+                                                ? "bg-blue-50 font-medium text-blue-700"
+                                                : "text-gray-700 hover:bg-gray-50",
+                                            )}
+                                          >
+                                            <span>{client.name}</span>
+                                            {metadata.selectedClientId ===
+                                              client.id && (
+                                              <CheckCircle2
+                                                size={16}
+                                                className="text-blue-600"
+                                              />
+                                            )}
+                                          </button>
+                                        ))
+                                      ) : (
+                                        <div className="px-4 py-6 text-center text-sm text-gray-400">
+                                          {patientSearch
+                                            ? "Nenhum paciente encontrado"
+                                            : "Nenhum paciente cadastrado"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* ── Inline Create Patient Form ── */
+                                  <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/30 p-4">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-semibold text-gray-700">
+                                        Novo Paciente
+                                      </span>
+                                      <button
+                                        data-tour="create-patient-back-btn"
+                                        onClick={() =>
+                                          setIsCreatingPatient(false)
+                                        }
+                                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                      >
+                                        ← Voltar à lista
+                                      </button>
+                                    </div>
+
+                                    <input
+                                      data-tour="create-client-name"
+                                      value={newPatientName}
+                                      onChange={(e) =>
+                                        setNewPatientName(e.target.value)
+                                      }
+                                      placeholder="Nome do paciente *"
+                                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                      autoFocus
+                                    />
+
+                                    <textarea
+                                      value={newPatientDescription}
+                                      onChange={(e) =>
+                                        setNewPatientDescription(e.target.value)
+                                      }
+                                      placeholder="Descrição (opcional)"
+                                      className="h-16 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    />
+
+                                    <div>
+                                      <label className="mb-1 block text-xs font-medium text-gray-500">
+                                        Data de nascimento (opcional)
+                                      </label>
+                                      <input
+                                        type="date"
+                                        value={newPatientBirthDate}
+                                        onChange={(e) =>
+                                          setNewPatientBirthDate(e.target.value)
+                                        }
+                                        max={
+                                          new Date().toISOString().split("T")[0]
+                                        }
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                      />
+                                    </div>
+
+                                    <button
+                                      data-tour="create-client-submit-btn"
+                                      onClick={handleInlineCreatePatient}
+                                      disabled={
+                                        isCreatingPatientLoading ||
+                                        newPatientName.trim().length < 2
+                                      }
+                                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                      {isCreatingPatientLoading ? (
+                                        <Loader2
+                                          size={16}
+                                          className="animate-spin"
+                                        />
+                                      ) : (
+                                        <>
+                                          <UserPlus size={16} />
+                                          Criar e Selecionar
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Start Recording Button */}
+                          <div className="mt-6">
+                            <button
+                              data-tour="start-recording-btn"
+                              onClick={handleStartRecording}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99]"
+                            >
+                              {currentMediaType === "video" ? (
+                                <>
+                                  <Video size={20} />
+                                  Continuar
+                                </>
+                              ) : (
+                                <>
+                                  <Mic size={20} />
+                                  Iniciar Gravação
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
 
-                  <button
-                    onClick={handleStartRecording}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-4 font-semibold text-white transition-colors hover:bg-blue-700"
-                  >
-                    {currentMediaType === "video" ? (
-                      <>
-                        <Video size={20} />
-                        Continuar
-                      </>
-                    ) : (
-                      <>
-                        <Mic size={20} />
-                        Iniciar Gravação
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+                  {/* ═══ INSTRUCTIONS ═══ */}
+                  {currentStep === "instructions" && (
+                    <>
+                      <div className="space-y-4">
+                        <div
+                          data-tour="instructions-block"
+                          className="rounded-xl border border-blue-200 bg-blue-50 p-4"
+                        >
+                          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-blue-900">
+                            <AlertCircle size={18} />
+                            Instruções Importantes
+                          </h3>
+                          <ol className="space-y-2.5 text-sm text-blue-800">
+                            <li className="flex items-start gap-2">
+                              <span className="min-w-[20px] font-bold">1.</span>
+                              <span>
+                                Na próxima tela, selecione a{" "}
+                                <strong>ABA do Google Meet</strong> (não a
+                                janela inteira)
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="min-w-[20px] font-bold">2.</span>
+                              <span>
+                                Certifique-se de{" "}
+                                <strong>
+                                  marcar a opção &quot;Compartilhar áudio da
+                                  aba&quot;
+                                </strong>
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="min-w-[20px] font-bold">3.</span>
+                              <span>
+                                Clique em{" "}
+                                <strong>&quot;Compartilhar&quot;</strong>
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="min-w-[20px] font-bold">4.</span>
+                              <span>
+                                A gravação iniciará automaticamente e capturará
+                                vídeo + áudio da reunião
+                              </span>
+                            </li>
+                          </ol>
+                        </div>
 
-            {currentStep === "instructions" && (
-              <div className="animate-slide-up w-full max-w-2xl rounded-t-3xl bg-white p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Instruções
-                  </h2>
-                  <button
-                    onClick={resetFlow}
-                    className="text-gray-500 transition-colors hover:text-gray-700"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                    <h3 className="mb-3 flex items-center gap-2 font-semibold text-blue-900">
-                      <AlertCircle size={20} />
-                      Instruções Importantes
-                    </h3>
-                    <ol className="space-y-3 text-sm text-blue-800">
-                      <li className="flex items-start gap-2">
-                        <span className="min-w-[24px] font-bold">1.</span>
-                        <span>
-                          Na próxima tela, selecione a{" "}
-                          <strong>ABA do Google Meet</strong> (não a janela
-                          inteira)
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="min-w-[24px] font-bold">2.</span>
-                        <span>
-                          Certifique-se de{" "}
-                          <strong>
-                            marcar a opção {"'"}Compartilhar áudio da aba{"'"}
-                          </strong>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="min-w-[24px] font-bold">3.</span>
-                        <span>
-                          Clique em{" "}
-                          <strong>
-                            {"'"}Compartilhar{"'"}
-                          </strong>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="min-w-[24px] font-bold">4.</span>
-                        <span>
-                          A gravação iniciará automaticamente e capturará vídeo
-                          + áudio da reunião
-                        </span>
-                      </li>
-                    </ol>
-                  </div>
-
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                    <div className="flex items-start gap-2 text-sm text-green-800">
-                      <CheckCircle2
-                        size={20}
-                        className="mt-0.5 flex-shrink-0"
-                      />
-                      <p>
-                        <strong>Dica:</strong> O áudio do seu microfone também
-                        será capturado automaticamente para registrar suas
-                        observações durante a consulta.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setCurrentStep("save-dialog")}
-                      className="flex-1 rounded-lg bg-gray-200 py-4 font-semibold text-gray-700 transition-colors hover:bg-gray-300"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      onClick={handleStartVideoRecording}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 py-4 font-semibold text-white transition-colors hover:bg-blue-700"
-                    >
-                      <Video size={20} />
-                      Iniciar Gravação
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStep === "recording" && (
-              <div className="animate-slide-up w-full max-w-2xl rounded-t-3xl bg-white p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Gravando...
-                  </h2>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <div className="relative">
-                      <div className="bg-primary flex h-24 w-24 animate-pulse items-center justify-center rounded-full">
-                        {metadata.consultationType === "ONLINE" ? (
-                          <Video size={40} className="text-white" />
-                        ) : (
-                          <Mic size={40} className="text-white" />
-                        )}
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                          <div className="flex items-start gap-2 text-sm text-green-800">
+                            <CheckCircle2
+                              size={18}
+                              className="mt-0.5 flex-shrink-0"
+                            />
+                            <p>
+                              <strong>Dica:</strong> O áudio do seu microfone
+                              também será capturado automaticamente.
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="bg-primary absolute -top-1 -right-1 h-6 w-6 animate-ping rounded-full" />
-                    </div>
 
-                    <p className="mt-6 text-3xl font-bold text-gray-800">
-                      {formatDuration(recorder.duration)}
-                    </p>
-
-                    <p className="mt-2 text-gray-600">
-                      {metadata.consultationType === "ONLINE"
-                        ? "Gravando vídeo e áudio..."
-                        : "Gravando áudio..."}
-                    </p>
-                  </div>
-
-                  {metadata.consultationType === "ONLINE" && (
-                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-                      <p className="text-center text-sm text-yellow-800">
-                        Para parar a gravação, clique em {"'"}Parar
-                        compartilhamento
-                        {"'"} na barra do navegador ou no botão abaixo
-                      </p>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={recorder.stopRecording}
-                    className="bg-primary flex w-full items-center justify-center gap-2 rounded-lg py-4 font-semibold text-white transition-colors hover:bg-red-700"
-                  >
-                    <Pause size={20} />
-                    Parar Gravação
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === "preview" && (
-              <div className="animate-slide-up w-full max-w-2xl rounded-t-3xl bg-white p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Revisar Gravação
-                  </h2>
-                  <button
-                    onClick={resetFlow}
-                    className="text-gray-500 transition-colors hover:text-gray-700"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-
-                <div className="space-y-6">
-                  {currentMediaType === "video" && (
-                    <div className="overflow-hidden rounded-lg bg-black">
-                      <video
-                        ref={videoPreviewRef}
-                        controls
-                        className="w-full"
-                        style={{ maxHeight: "400px" }}
-                      >
-                        Seu navegador não suporta o elemento de vídeo.
-                      </video>
-                    </div>
-                  )}
-
-                  {currentMediaType === "audio" && (
-                    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-12">
-                      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
-                        <Volume2 size={40} className="text-blue-600" />
+                      <div className="mt-6 flex gap-3">
+                        <button
+                          data-tour="instructions-back-btn"
+                          onClick={() => setCurrentStep("save-dialog")}
+                          className="flex-1 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+                        >
+                          Voltar
+                        </button>
+                        <button
+                          data-tour="start-video-recording-btn"
+                          onClick={handleStartVideoRecording}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                        >
+                          <Video size={18} />
+                          Iniciar Gravação
+                        </button>
                       </div>
-                      <audio
-                        ref={audioPreviewRef}
-                        controls
-                        className="w-full max-w-md"
-                      >
-                        Seu navegador não suporta o elemento de áudio.
-                      </audio>
-                    </div>
+                    </>
                   )}
 
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="font-medium text-gray-600">Duração</p>
-                        <p className="text-lg font-bold text-gray-800">
+                  {/* ═══ RECORDING ═══ */}
+                  {currentStep === "recording" && (
+                    <>
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <div className="relative">
+                          <div className="flex h-24 w-24 animate-pulse items-center justify-center rounded-full bg-blue-600">
+                            {metadata.consultationType === "ONLINE" ? (
+                              <Video size={40} className="text-white" />
+                            ) : (
+                              <Mic size={40} className="text-white" />
+                            )}
+                          </div>
+                          <div className="absolute -top-1 -right-1 h-6 w-6 animate-ping rounded-full bg-blue-600" />
+                        </div>
+
+                        <p className="mt-6 text-3xl font-bold text-gray-800">
                           {formatDuration(recorder.duration)}
                         </p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-600">Tipo</p>
-                        <p className="text-lg font-bold text-gray-800">
-                          {currentMediaType === "video"
-                            ? "Vídeo + Áudio"
-                            : "Áudio"}
+                        <p className="mt-2 text-sm text-gray-500">
+                          {metadata.consultationType === "ONLINE"
+                            ? "Gravando vídeo e áudio..."
+                            : "Gravando áudio..."}
                         </p>
                       </div>
+
+                      {metadata.consultationType === "ONLINE" && (
+                        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+                          <p className="text-center text-xs text-yellow-800">
+                            Para parar, clique em &quot;Parar
+                            compartilhamento&quot; na barra do navegador ou no
+                            botão abaixo
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-6">
+                        <button
+                          data-tour="stop-recording-btn"
+                          onClick={recorder.stopRecording}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3.5 font-semibold text-white transition-colors hover:bg-red-700"
+                        >
+                          <Pause size={20} />
+                          Parar Gravação
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ═══ PREVIEW ═══ */}
+                  {currentStep === "preview" && (
+                    <>
+                      <div className="space-y-4">
+                        {currentMediaType === "video" && (
+                          <div className="overflow-hidden rounded-xl bg-black">
+                            <video
+                              ref={videoPreviewRef}
+                              controls
+                              className="w-full"
+                              style={{ maxHeight: "300px" }}
+                            >
+                              Seu navegador não suporta o elemento de vídeo.
+                            </video>
+                          </div>
+                        )}
+
+                        {currentMediaType === "audio" && (
+                          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 py-8">
+                            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                              <Volume2 size={32} className="text-blue-600" />
+                            </div>
+                            <audio
+                              ref={audioPreviewRef}
+                              controls
+                              className="w-full max-w-sm"
+                            >
+                              Seu navegador não suporta o elemento de áudio.
+                            </audio>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">
+                              Duração
+                            </p>
+                            <p className="text-base font-bold text-gray-800">
+                              {formatDuration(recorder.duration)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">
+                              Tipo
+                            </p>
+                            <p className="text-base font-bold text-gray-800">
+                              {currentMediaType === "video"
+                                ? "Vídeo + Áudio"
+                                : "Áudio"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                          <div className="flex items-start gap-2 text-xs text-blue-800">
+                            <AlertCircle
+                              size={16}
+                              className="mt-0.5 flex-shrink-0"
+                            />
+                            <p>
+                              Reproduza e verifique se a qualidade está boa
+                              antes de enviar.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 flex gap-3">
+                        <button
+                          onClick={handleRetryRecording}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+                        >
+                          <RefreshCw size={16} />
+                          Regravar
+                        </button>
+                        <button
+                          data-tour="confirm-send-btn"
+                          onClick={handleConfirmRecording}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                        >
+                          <Send size={16} />
+                          Confirmar e Enviar
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ═══ PROCESSING ═══ */}
+                  {currentStep === "processing" && (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="h-14 w-14 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                      <p className="mt-5 text-base font-semibold text-gray-800">
+                        Processando gravação...
+                      </p>
+                      <p className="mt-1.5 text-center text-sm text-gray-500">
+                        Aguarde enquanto preparamos sua gravação
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* end right side */}
+              {currentStep === "save-dialog" && (
+                <div className="relative hidden w-1/2 overflow-hidden bg-blue-900 md:block">
+                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-blue-900/90 via-blue-900/20 to-transparent" />
+
+                  <div className="absolute top-10 left-10 z-20">
+                    <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-md">
+                      <div className="h-2 w-2 animate-pulse rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]" />
+                      <span className="text-xs font-semibold tracking-wide text-white">
+                        Plataforma Segura
+                      </span>
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                    <div className="flex items-start gap-2 text-sm text-blue-800">
-                      <AlertCircle size={20} className="mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold">Valide sua gravação</p>
-                        <p className="mt-1">
-                          {currentMediaType === "video"
-                            ? "Reproduza o vídeo e verifique se o áudio e vídeo estão sincronizados e com boa qualidade."
-                            : "Reproduza o áudio e verifique se está audível e com boa qualidade."}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="absolute bottom-10 left-10 z-20 max-w-md pr-8 text-white">
+                    <h3 className="text-3xl leading-tight font-bold tracking-tight">
+                      A revolução do <br /> atendimento médico.
+                    </h3>
+                    <p className="mt-4 text-base leading-relaxed font-light text-blue-100 opacity-90">
+                      Registre sua consulta com inteligência artificial e
+                      transforme seu atendimento.
+                    </p>
                   </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleRetryRecording}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-200 py-4 font-semibold text-gray-700 transition-colors hover:bg-gray-300"
-                    >
-                      <RefreshCw size={20} />
-                      Gravar Novamente
-                    </button>
-                    <button
-                      onClick={handleConfirmRecording}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-4 font-semibold text-white transition-colors hover:bg-green-700"
-                    >
-                      <Send size={20} />
-                      Confirmar e Enviar
-                    </button>
+                  {carouselImages.map((img, index) => (
+                    <div
+                      key={img}
+                      className={cn(
+                        "absolute inset-0 h-full w-full transform bg-cover bg-center transition-all duration-1000 ease-in-out",
+                        index === currentImageIndex
+                          ? "scale-105 opacity-100"
+                          : "scale-100 opacity-0",
+                      )}
+                      style={{ backgroundImage: `url(${img})` }}
+                    />
+                  ))}
+
+                  <div className="absolute right-10 bottom-10 z-20 flex gap-2">
+                    {carouselImages.map((_, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "h-1 rounded-full transition-all duration-300",
+                          i === currentImageIndex
+                            ? "w-8 bg-blue-400"
+                            : "w-2 bg-white/30",
+                        )}
+                      />
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {currentStep === "processing" && (
-              <div className="animate-slide-up w-full max-w-2xl rounded-t-3xl bg-white p-6">
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-                  <p className="mt-6 text-lg font-semibold text-gray-800">
-                    Processando gravação...
-                  </p>
-                  <p className="mt-2 text-center text-gray-600">
-                    Aguarde enquanto preparamos sua gravação para transcrição
-                  </p>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>,
           document.body,
         )}
-
-      {isCreateClientSheetOpen && (
-        <CreateClientSheet
-          isOpen={isCreateClientSheetOpen}
-          onClose={() => setIsCreateClientSheetOpen(false)}
-          className="text-black"
-          onClientCreated={(client) => {
-            console.log("DEBUG: AudioRecorder received client:", client);
-            // Fallback for immediate ID if available (unlikely given previous errors)
-            if (client?.id) {
-              updateMetadata({ selectedClientId: client.id });
-            }
-
-            // Strategy: Set name as pending and wait for list update
-            if (client?.name) {
-              console.log("DEBUG: Setting pendingClientName:", client.name);
-              setPendingClientName(client.name);
-              // Also set temp for immediate visual feedback (even without ID)
-              setTempCreatedClient(client);
-            }
-          }}
-        />
-      )}
     </>
   );
 }
