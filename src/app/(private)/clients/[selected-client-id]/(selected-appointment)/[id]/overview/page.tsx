@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "@/context/auth";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { trackAction, UserActionType } from "@/services/actionTrackingService";
@@ -20,9 +21,21 @@ export default function OverviewPage() {
   const pathname = usePathname();
   const { PostAPI } = useApiContext();
   const { selectedRecording, selectedClient } = useGeneralContext();
+  const {
+    isTrial,
+    availableRecording,
+    totalRecording,
+    availabilityLoaded,
+  } = useSession();
 
-  // Abrir modal quando entrar na página (apenas uma vez)
+  const isExpired =
+    !isTrial && availableRecording === 0 && totalRecording === 0;
+  const shouldShowPersonalizationPrompt =
+    availabilityLoaded && (isTrial || isExpired);
+
+  // Abrir modal quando entrar na página (apenas uma vez), só para trial/expirado
   useEffect(() => {
+    if (!shouldShowPersonalizationPrompt) return;
     const hasSeenModal = sessionStorage.getItem(
       "hasSeenPersonalizationModal-resumo",
     );
@@ -30,7 +43,7 @@ export default function OverviewPage() {
       setIsPersonalizationModalOpen(true);
       sessionStorage.setItem("hasSeenPersonalizationModal-resumo", "true");
     }
-  }, []);
+  }, [shouldShowPersonalizationPrompt]);
 
   // Tracking quando a página é visualizada (pathname garante disparo a cada acesso à tela)
   useEffect(() => {
@@ -113,14 +126,16 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setIsPersonalizationModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 shadow-sm transition hover:bg-blue-100"
-          >
-            <Sparkles className="h-4 w-4" />
-            Personalizar Insights
-          </button>
+          {shouldShowPersonalizationPrompt && (
+            <button
+              type="button"
+              onClick={() => setIsPersonalizationModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 shadow-sm transition hover:bg-blue-100"
+            >
+              <Sparkles className="h-4 w-4" />
+              Personalizar Insights
+            </button>
+          )}
           <button
             type="button"
             onClick={handleExportPdf}

@@ -29,6 +29,7 @@ interface SessionContextValue {
   profile: User | null;
   setProfile: React.Dispatch<React.SetStateAction<User | null>>;
   loading: boolean;
+  availabilityLoaded: boolean;
   availableRecording: number;
   totalRecording: number;
   isTrial: boolean;
@@ -62,6 +63,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const { GetAPI, PostAPI } = useApiContext();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<User | null>(null);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
   const [availableRecording, setAvailableRecording] = useState(0);
   const [totalRecording, setTotalRecording] = useState(0);
   const [isTrial, setIsTrial] = useState(false);
@@ -81,6 +83,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const forceSignOut = useCallback(async () => {
     try {
       setProfile(null);
+      setAvailabilityLoaded(false);
       setAvailableRecording(0);
       setTotalRecording(0);
       setIsTrial(false);
@@ -163,6 +166,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setAvailableRecording(0);
       setTotalRecording(0);
       setIsTrial(false);
+    } finally {
+      setAvailabilityLoaded(true);
     }
   }, [GetAPI]);
 
@@ -217,6 +222,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         loading,
         profile,
         setProfile,
+        availabilityLoaded,
         availableRecording,
         handleGetAvailableRecording,
         totalRecording,
