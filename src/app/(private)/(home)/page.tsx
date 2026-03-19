@@ -1,27 +1,25 @@
 "use client";
 
+import { NewPersonalRecordingModal } from "@/app/(private)/recordings/components/new-personal-recording-modal";
+import { NewReminderModal } from "@/app/(private)/reminders/components/new-reminder-modal";
+import { CreateClientModal } from "@/components/ui/create-client-modal";
 import { useApiContext } from "@/context/ApiContext";
-import { useGeneralContext } from "@/context/GeneralContext";
 import { useSession } from "@/context/auth";
-import { TOUR_ENABLED, useRecordingTour } from "@/context/RecordingTourContext";
+import { useGeneralContext } from "@/context/GeneralContext";
+import { TOUR_ENABLED, getTourCompleted, useRecordingTour } from "@/context/RecordingTourContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { startSession } from "@/services/analyticsService";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CreateClientModal } from "@/components/ui/create-client-modal";
-import { NewReminderModal } from "@/app/(private)/reminders/components/new-reminder-modal";
-import { NewPersonalRecordingModal } from "@/app/(private)/recordings/components/new-personal-recording-modal";
 import { CompleteRegistrationModal } from "./components/complete-registration-modal";
 import { QuickActions } from "./components/quick-actions";
 import { RecentClients } from "./components/recent-clients";
-import { RecentOthersList } from "./components/recent-others-list";
-import { RecentStudyList } from "./components/recent-study-list";
+import { RecentRecordingsList } from "./components/recent-recordings-list";
 import { TodayRemindersCompact } from "./components/today-reminders-compact";
 import { TrialAppModal } from "./components/trial-app-modal";
 import { UpgradePlanBanner } from "./components/upgrade-plan-banner";
 import { WelcomeTourModal } from "./components/welcome-tour-modal";
-import { RecentRecordingsList } from "./components/recent-recordings-list";
 
 function useLiveTime() {
   const [now, setNow] = useState(new Date());
@@ -60,9 +58,23 @@ export default function HomePage() {
   const pathname = usePathname();
   const { profile } = useSession();
   const { PostAPI } = useApiContext();
-  const { GetReminders, GetRecordings } = useGeneralContext();
+  const {
+    GetReminders,
+    GetRecordings,
+    setRecordingsFilters,
+    setClientsFilters,
+    setRemindersFilters,
+  } = useGeneralContext();
   const { startTour } = useRecordingTour();
   const now = useLiveTime();
+
+  // Reset filters when entering the home page so recent items are not restricted
+  // by filters applied in other pages (like specific client views).
+  useEffect(() => {
+    setRecordingsFilters({ page: 1 });
+    setClientsFilters({ page: 1 });
+    setRemindersFilters({ page: 1 });
+  }, [setRecordingsFilters, setClientsFilters, setRemindersFilters]);
 
   const [trialAppModalOpen, setTrialAppModalOpen] = useState<boolean | null>(
     null,
@@ -90,6 +102,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!TOUR_ENABLED) return;
     if (pathname !== "/") return;
+    if (getTourCompleted()) return; // Tour já concluído (cookie) — não mostra o modal
     if (trialAppModalOpen !== false) return;
     const prev = prevTrialModalRef.current;
     if (prev !== true && prev !== null) return;
@@ -175,10 +188,10 @@ export default function HomePage() {
           <RecentRecordingsList className="min-w-0 lg:col-span-1" />
         </div>
 
-        {/* 1/4 da tela: Últimas consultas + Lembretes (altura igual ao bloco da esquerda) */}
-        <div className="flex min-h-0 flex-col gap-4 lg:col-span-1">
-          <RecentClients className="min-h-0 min-w-0 flex-1" />
-          <TodayRemindersCompact className="min-h-0 min-w-0 flex-1" />
+        {/* 1/4 da tela: pacientes recentes + lembretes (altura pelo conteúdo, sem scroll interno) */}
+        <div className="flex flex-col gap-4 lg:col-span-1">
+          <RecentClients className="min-w-0 shrink-0" />
+          <TodayRemindersCompact className="min-w-0 shrink-0" onNewReminderClick={() => setNewReminderModalOpen(true)} />
         </div>
       </div>
 

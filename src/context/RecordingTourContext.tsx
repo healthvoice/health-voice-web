@@ -14,17 +14,19 @@ import toast from "react-hot-toast";
 /** Desative como false para desligar o tour; mude para true para reativar. */
 export const TOUR_ENABLED = true;
 
-const TOUR_COMPLETED_KEY = "health-voice-recording-tour-completed";
+const TOUR_COMPLETED_KEY = "hv-tour-done";
 const TOUR_FINAL_STEP_KEY = "health-voice-recording-tour-final-step";
 
 export function getTourCompleted(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(TOUR_COMPLETED_KEY) === "true";
+  if (typeof document === "undefined") return false;
+  return document.cookie.split("; ").some((c) => c.startsWith(`${TOUR_COMPLETED_KEY}=`));
 }
 
 export function setTourCompleted(): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(TOUR_COMPLETED_KEY, "true");
+  if (typeof document === "undefined") return;
+  // Cookie com validade de 1 ano
+  const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `${TOUR_COMPLETED_KEY}=1; expires=${expires}; path=/; SameSite=Lax`;
 }
 
 export function setTourFinalStepPending(): void {
@@ -283,6 +285,10 @@ export function RecordingTourProvider({
       allowClose: false,
       overlayOpacity: 0.75,
       overlayClickBehavior: () => {},
+      // Desativa scroll e animação de transição para evitar glitch do popover
+      // (o body usa position:fixed para lock de scroll, o que conflita com scrollIntoView do driver.js)
+      smoothScroll: false,
+      animate: false,
       steps: recordingTourSteps,
       progressText: "{{current}} de {{total}}",
       nextBtnText: "Próximo",
@@ -295,7 +301,9 @@ export function RecordingTourProvider({
         // Passos com UI dinâmica/modal: refresh com delay para o popover não ir pro canto
         if ([1, 4, 7, 9].includes(idx)) {
           setTimeout(() => driverRef.current?.refresh(), 100);
-          setTimeout(() => driverRef.current?.refresh(), 500);
+          setTimeout(() => driverRef.current?.refresh(), 300);
+          setTimeout(() => driverRef.current?.refresh(), 600);
+          setTimeout(() => driverRef.current?.refresh(), 1000);
         }
       },
       onNextClick: (_element, _step, options) => {
@@ -318,13 +326,9 @@ export function RecordingTourProvider({
         const selector = ACTION_STEP_SELECTORS[idx];
         if (selector) {
           clickTourElement(selector);
-          // Step 8 (Iniciar gravação): a UI muda e o botão some — avançar para o passo "Parar gravação" e refresh
+          // Step 8 (Iniciar gravação): NÃO avançar manualmente — a gravação é async (browser pede permissão).
+          // O useEffect em audio-recorder.tsx detecta currentStep === "recording" e avança o tour automaticamente.
           if (idx === 8) {
-            setTimeout(() => {
-              options.driver.moveNext();
-              setTimeout(() => options.driver.refresh(), 200);
-              setTimeout(() => options.driver.refresh(), 700);
-            }, 200);
             return;
           }
           // For auto-advance steps, the AudioRecorder's useEffect will advance the tour

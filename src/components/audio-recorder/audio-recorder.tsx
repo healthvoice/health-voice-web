@@ -367,8 +367,18 @@ export function AudioRecorder({
       lastTourStepRef.current !== "instructions"
     ) {
       lastTourStepRef.current = "instructions";
-      // Delay para a tela de instruções renderizar antes do tour destacar o passo 7 (evita popover no canto)
-      setTimeout(() => advanceToNextStep(), 550);
+      // Aguarda o browser pintar o layout novo (instructions é 1 coluna, save-dialog era 2 colunas)
+      // e só então avança o tour + faz refreshes agressivos para reposicionar o popover
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          advanceToNextStep();
+          // Refreshes pós-avanço para garantir que o popover se reposicione após o layout estabilizar
+          setTimeout(() => driverRef.current?.refresh(), 50);
+          setTimeout(() => driverRef.current?.refresh(), 200);
+          setTimeout(() => driverRef.current?.refresh(), 500);
+          setTimeout(() => driverRef.current?.refresh(), 900);
+        });
+      }, 400);
     }
     if (
       currentStep === "recording" &&
@@ -515,6 +525,15 @@ export function AudioRecorder({
         }
         setError(errorMessage);
         setCurrentStep("save-dialog");
+        // Tour: voltar para o passo do botão "Continuar" para o usuário tentar novamente
+        if (isTourActive && driverRef.current) {
+          lastTourStepRef.current = "";
+          setTimeout(() => {
+            driverRef.current?.moveTo(6);
+            setTimeout(() => driverRef.current?.refresh(), 300);
+            setTimeout(() => driverRef.current?.refresh(), 700);
+          }, 400);
+        }
       }
     }
   };
@@ -533,6 +552,15 @@ export function AudioRecorder({
       }
       setError(errorMessage);
       setCurrentStep("save-dialog");
+      // Tour: voltar para o passo do botão "Continuar" para o usuário tentar novamente
+      if (isTourActive && driverRef.current) {
+        lastTourStepRef.current = "";
+        setTimeout(() => {
+          driverRef.current?.moveTo(6);
+          setTimeout(() => driverRef.current?.refresh(), 300);
+          setTimeout(() => driverRef.current?.refresh(), 700);
+        }, 400);
+      }
     }
   };
 
@@ -890,9 +918,9 @@ export function AudioRecorder({
             {/* ── Unified Modal Container ── */}
             <div
               className={cn(
-                "animate-in fade-in zoom-in-95 flex w-full overflow-hidden rounded-3xl bg-white shadow-2xl duration-300",
+                "flex w-full overflow-hidden rounded-3xl bg-white shadow-2xl",
                 currentStep === "save-dialog"
-                  ? "min-h-[600px] max-w-5xl flex-row"
+                  ? "animate-in fade-in zoom-in-95 min-h-[600px] max-w-5xl flex-row duration-300"
                   : "max-w-lg flex-col",
               )}
               style={currentStep !== "save-dialog" ? { maxHeight: "85vh" } : {}}

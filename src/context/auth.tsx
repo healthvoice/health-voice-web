@@ -32,6 +32,7 @@ interface SessionContextValue {
   availableRecording: number;
   totalRecording: number;
   isTrial: boolean;
+  availabilityLoaded: boolean;
   handleGetProfile: (forceRefresh?: boolean) => Promise<void>;
   handleGetAvailableRecording: () => Promise<void>;
   checkSession: () => boolean;
@@ -65,6 +66,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [availableRecording, setAvailableRecording] = useState(0);
   const [totalRecording, setTotalRecording] = useState(0);
   const [isTrial, setIsTrial] = useState(false);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
 
   const isLoadingProfile = useRef(false);
 
@@ -84,6 +86,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setAvailableRecording(0);
       setTotalRecording(0);
       setIsTrial(false);
+      setAvailabilityLoaded(false);
 
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -163,6 +166,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setAvailableRecording(0);
       setTotalRecording(0);
       setIsTrial(false);
+    } finally {
+      setAvailabilityLoaded(true);
     }
   }, [GetAPI]);
 
@@ -221,6 +226,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         handleGetAvailableRecording,
         totalRecording,
         isTrial,
+        availabilityLoaded,
         checkSession,
         clearSession,
         forceSignOut,

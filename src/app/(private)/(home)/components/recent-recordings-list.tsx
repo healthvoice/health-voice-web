@@ -86,8 +86,7 @@ export function RecentRecordingsList({ className }: RecentRecordingsListProps) {
   const handleClick = (rec: (typeof recordings)[0]) => {
     switch (rec.type) {
       case "CLIENT":
-        if (rec.clientId)
-          router.push(`/clients/${rec.clientId}/appointment/${rec.id}`);
+        if (rec.clientId) router.push(`/clients/${rec.clientId}/${rec.id}`);
         break;
       case "REMINDER":
         if (rec.reminderId) router.push(`/reminders/${rec.reminderId}`);

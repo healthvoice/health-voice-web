@@ -5,8 +5,8 @@ import { useGeneralContext } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
 import { motion } from "framer-motion";
 import { ArrowRight, Plus, UserCircle2, Users } from "lucide-react";
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 const getInitials = (name: string): string => {
   const parts = name.trim().split(" ");
@@ -23,7 +23,7 @@ export function RecentClients({ className }: RecentClientsProps) {
   const { clients: apiClients, isGettingClients } = useGeneralContext();
 
   const clients = useMemo(() => {
-    return apiClients.slice(0, 6);
+    return apiClients.slice(0, 4);
   }, [apiClients]);
 
   return (
@@ -56,8 +56,8 @@ export function RecentClients({ className }: RecentClientsProps) {
         </div>
       </div>
 
-      {/* List */}
-      <div className="relative z-10 flex flex-1 flex-col px-3 py-3">
+      {/* List — sem flex-1 para não comprimir e esconder o rodapé "Ver todos" */}
+      <div className="relative z-10 flex shrink-0 flex-col px-3 py-3">
         {isGettingClients ? (
           <div className="flex flex-col gap-0">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -121,7 +121,7 @@ export function RecentClients({ className }: RecentClientsProps) {
       </div>
       <button
         onClick={() => router.push("/clients")}
-        className="flex items-center gap-1 self-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
+        className="relative z-10 mt-1 mb-3 flex shrink-0 items-center gap-1 self-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
       >
         Ver todos
         <ArrowRight className="h-4 w-4" />

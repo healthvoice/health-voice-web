@@ -1,6 +1,7 @@
 "use client";
 
 import { useApiContext } from "@/context/ApiContext";
+import { useSession } from "@/context/auth";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { FileDown, Loader2, Sparkles } from "lucide-react";
@@ -20,8 +21,13 @@ export default function OverviewPage() {
   const pathname = usePathname();
   const { PostAPI } = useApiContext();
   const { selectedRecording, selectedClient } = useGeneralContext();
+  const { isTrial, availableRecording, totalRecording, availabilityLoaded } = useSession();
+
+  const isExpired = !isTrial && availableRecording === 0 && totalRecording === 0;
+  const shouldShowPersonalizationPrompt = availabilityLoaded && (isTrial || isExpired);
 
   useEffect(() => {
+    if (!shouldShowPersonalizationPrompt) return;
     const hasSeenModal = sessionStorage.getItem(
       "hasSeenPersonalizationModal-resumo",
     );
@@ -29,7 +35,7 @@ export default function OverviewPage() {
       setIsPersonalizationModalOpen(true);
       sessionStorage.setItem("hasSeenPersonalizationModal-resumo", "true");
     }
-  }, []);
+  }, [shouldShowPersonalizationPrompt]);
 
   useEffect(() => {
     if (selectedRecording?.id) {
@@ -104,14 +110,16 @@ export default function OverviewPage() {
       {/* Action bar — só exibe quando há resumo estruturado */}
       {hasStructuredSummary && (
         <div className="flex w-full min-w-0 items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => setIsPersonalizationModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition-all hover:bg-blue-100 hover:shadow-md active:scale-95"
-          >
-            <Sparkles className="h-4 w-4" />
-            Personalizar
-          </button>
+          {shouldShowPersonalizationPrompt && (
+            <button
+              type="button"
+              onClick={() => setIsPersonalizationModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition-all hover:bg-blue-100 hover:shadow-md active:scale-95"
+            >
+              <Sparkles className="h-4 w-4" />
+              Personalizar
+            </button>
+          )}
           <button
             type="button"
             onClick={handleExportPdf}

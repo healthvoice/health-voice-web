@@ -16,17 +16,18 @@ interface LocalStatus {
 
 interface TodayRemindersCompactProps {
   className?: string;
+  onNewReminderClick?: () => void;
 }
 
 export function TodayRemindersCompact({
   className,
+  onNewReminderClick,
 }: TodayRemindersCompactProps) {
   const { PutAPI } = useApiContext();
   const router = useRouter();
   const {
     reminders: apiReminders,
     isGettingReminders,
-    openNewRecording,
   } = useGeneralContext();
 
   const [localStatuses, setLocalStatuses] = useState<LocalStatus>({});
@@ -103,8 +104,8 @@ export function TodayRemindersCompact({
         </div>
       </div>
 
-      {/* List */}
-      <div className="relative z-10 flex flex-1 flex-col px-3 py-3">
+      {/* List — altura natural, sem área flex que roube espaço do rodapé */}
+      <div className="relative z-10 flex shrink-0 flex-col px-3 py-3">
         <AnimatePresence mode="popLayout">
           {isGettingReminders ? (
             <motion.div
@@ -143,7 +144,7 @@ export function TodayRemindersCompact({
                 Sem lembretes hoje
               </p>
               <button
-                onClick={() => openNewRecording("PERSONAL", "REMINDER")}
+                onClick={onNewReminderClick}
                 className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-100 bg-white/60 px-4 py-2 text-sm font-medium text-sky-600 shadow-sm transition-colors hover:bg-white"
               >
                 <Plus className="h-4 w-4" />
@@ -235,7 +236,7 @@ export function TodayRemindersCompact({
       </div>
       <button
         onClick={() => router.push("/reminders")}
-        className="flex items-center gap-1 self-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
+        className="relative z-10 mt-1 mb-3 flex shrink-0 items-center gap-1 self-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
       >
         Ver todos
         <ArrowRight className="h-4 w-4" />
