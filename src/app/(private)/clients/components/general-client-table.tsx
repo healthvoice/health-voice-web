@@ -90,6 +90,7 @@ export function GeneralClientsTable() {
               setClientsFilters((prev) => ({ ...prev, page }))
             }
             pages={clientsTotalPages}
+            trackingPrefix="clients"
           />
         </div>
       )}

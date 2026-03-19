@@ -5,7 +5,7 @@ import { useSession } from "@/context/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2, LockIcon, Mail, User } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
@@ -18,6 +18,10 @@ import {
 } from "../../login/components/form";
 import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
 import { TermsOfUseModal } from "./TermsOfUseModal";
+import { useApiContext } from "@/context/ApiContext";
+import { useTrackingContext } from "@/context/TrackingContext";
+import { Platform } from "@/services/analyticsService";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 
 const FormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -36,11 +40,20 @@ const FormSchema = z.object({
 const RegisterForm = () => {
   const { handleGetProfile } = useSession();
   const router = useRouter();
+  const { PostAPI } = useApiContext();
+  const { sessionId } = useTrackingContext();
   const [isCreating, setIsCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showRememberPassword, setShowRememberPassword] = useState(false);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
+  
+  // Debounce timers para tracking de inputs
+  const nameDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const emailDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Tracking de botões
+  useButtonTracking();
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -54,6 +67,71 @@ const RegisterForm = () => {
       },
     },
   });
+
+  // Tracking de debounce de inputs (não rastrear senhas)
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (!sessionId) return;
+      
+      // Não rastrear senhas
+      if (name === "password.password" || name === "password.confirm") {
+        return;
+      }
+      
+      // Limpar timer anterior
+      if (name === "name" && nameDebounceRef.current) {
+        clearTimeout(nameDebounceRef.current);
+      }
+      if (name === "email" && emailDebounceRef.current) {
+        clearTimeout(emailDebounceRef.current);
+      }
+      
+      // Criar novo timer para debounce (500ms conforme guia)
+      const debounceTimer = setTimeout(async () => {
+        try {
+          const fieldValue = name === "name" ? value.name : value.email;
+          if (fieldValue && fieldValue.length > 0) {
+            await PostAPI(
+              "/analytics/actions",
+              {
+                actionType: "BUTTON_CLICKED", // Usar BUTTON_CLICKED para inputs também
+                platform: Platform.WEB,
+                metadata: {
+                  field: name,
+                  hasValue: true,
+                  valueLength: fieldValue.length,
+                },
+              },
+              true
+            );
+            
+            if (process.env.NODE_ENV === "development") {
+              console.log("📝 [Tracking] Campo com debounce rastreado:", {
+                field: name,
+                hasValue: true,
+              });
+            }
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [Tracking] Erro ao rastrear campo:", error);
+          }
+        }
+      }, 500);
+      
+      if (name === "name") {
+        nameDebounceRef.current = debounceTimer;
+      } else if (name === "email") {
+        emailDebounceRef.current = debounceTimer;
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+      if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+      if (emailDebounceRef.current) clearTimeout(emailDebounceRef.current);
+    };
+  }, [form, sessionId, PostAPI]);
 
   const handleRegister = async (data: z.infer<typeof FormSchema>) => {
     if (isCreating) return;
@@ -258,6 +336,7 @@ const RegisterForm = () => {
         <button
           onClick={form.handleSubmit(handleRegister)}
           disabled={isCreating}
+          data-tracking-id="register-submit-button"
           className="bg-primary flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isCreating ? (
@@ -275,6 +354,7 @@ const RegisterForm = () => {
           <button
             type="button"
             onClick={() => setTermsModalOpen(true)}
+            data-tracking-id="register-terms-link"
             className="text-primary font-medium hover:underline"
           >
             Termos de Serviço
@@ -283,6 +363,7 @@ const RegisterForm = () => {
           <button
             type="button"
             onClick={() => setPrivacyModalOpen(true)}
+            data-tracking-id="register-privacy-link"
             className="text-primary font-medium hover:underline"
           >
             Política de Privacidade

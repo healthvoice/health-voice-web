@@ -1,15 +1,16 @@
 "use client";
 
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
 import {
   Bell,
   BookOpen,
-  Mic,
-  UserPlus,
-  Sparkles,
   CircleDashed,
+  Mic,
+  Sparkles,
+  UserPlus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { MouseEvent } from "react";
@@ -53,6 +54,7 @@ function ActionCard({ action, index }: { action: QuickAction; index: number }) {
       }}
       className="group flex cursor-pointer flex-col items-center"
       onClick={action.onClick}
+      data-tracking-id={`home-quick-actions-${action.id}`}
     >
       {/* O Quadrado Principal com ícone e textos dentro */}
       <motion.div
@@ -159,6 +161,9 @@ export function QuickActions({
 }: QuickActionsProps) {
   const { openNewRecording } = useGeneralContext();
   const router = useRouter();
+  
+  // Tracking de botões
+  useButtonTracking();
 
   const actions: QuickAction[] = [
     {

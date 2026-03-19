@@ -2,14 +2,15 @@
 import { AudioRecorder } from "@/components/audio-recorder/audio-recorder";
 import { CustomPagination } from "@/components/ui/blocks/custom-pagination";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/blocks/table";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,6 +28,8 @@ export function GeneralRecordingsTable() {
     setRecordingsFilters,
     recordingsTotalPages,
   } = useGeneralContext();
+
+  useButtonTracking();
 
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn>(null);
@@ -102,6 +105,7 @@ export function GeneralRecordingsTable() {
               {GeneralRecordingsColumns.map((column) => (
                 <TableHead
                   key={column.key}
+                  data-tracking-id={`recordings-table-sort-${column.key.toLowerCase()}`}
                   className={cn(
                     "h-12 text-xs font-semibold tracking-wider text-white/90 uppercase",
                     column.sortable &&

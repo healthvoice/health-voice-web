@@ -2,20 +2,21 @@
 
 import { RecordingDetailsProps } from "@/@types/general-client";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowRight,
-  Bell,
-  BookOpen,
-  Calendar,
-  Clock,
-  FileText,
-  Mic,
-  User,
+    ArrowRight,
+    Bell,
+    BookOpen,
+    Calendar,
+    Clock,
+    FileText,
+    Mic,
+    User,
 } from "lucide-react";
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 const TYPE_CONFIG = {
   CLIENT: {
@@ -63,6 +64,9 @@ export function RecentRecordingsList({ className }: RecentRecordingsListProps) {
   const router = useRouter();
   const { recordings: apiRecordings, isGettingRecordings } =
     useGeneralContext();
+  
+  // Tracking de botões
+  useButtonTracking();
 
   const recordings = useMemo(() => {
     return apiRecordings
@@ -129,6 +133,8 @@ export function RecentRecordingsList({ className }: RecentRecordingsListProps) {
         </div>
         <button
           onClick={() => router.push("/recordings")}
+          data-tracking-id="home-recordings-see-all"
+          data-tracking-destination="/recordings"
           className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
         >
           Ver todas
@@ -191,6 +197,7 @@ export function RecentRecordingsList({ className }: RecentRecordingsListProps) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2, delay: idx * 0.04 }}
                   onClick={() => handleClick(rec)}
+                  data-tracking-id={`home-recordings-item-${rec.id}`}
                   className="group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all hover:bg-white/80 hover:shadow-md hover:shadow-sky-500/5 active:scale-[0.99]"
                 >
                   {/* Type dot */}

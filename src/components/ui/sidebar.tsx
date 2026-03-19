@@ -2,16 +2,15 @@
 
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useSession } from "@/context/auth";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useSidebar } from "@/store";
 import { cn } from "@/utils/cn";
 import {
   ChevronDown,
   ChevronRight,
   Crown,
-  LogOut,
-  Plus,
   Rocket,
-  Zap,
+  Zap
 } from "lucide-react";
 import moment from "moment";
 import Image from "next/image";
@@ -80,10 +79,15 @@ function NavItem({
   isActive: boolean;
   onClick: () => void;
 }) {
+  // Criar ID de tracking baseado no href
+  const trackingId = `sidebar-nav-${href === "/" ? "home" : href.replace("/", "").replace(/\//g, "-")}`;
+  
   return (
     <button
       type="button"
       onClick={onClick}
+      data-tracking-id={trackingId}
+      data-tracking-destination={href}
       className={cn(
         "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left font-medium transition-all duration-200",
         isActive
@@ -138,6 +142,8 @@ function SidebarUpgradeBanner({
       <button
         type="button"
         onClick={() => router.push("/plans")}
+        data-tracking-id="sidebar-upgrade-banner"
+        data-tracking-destination="/plans"
         className="group relative w-full overflow-hidden rounded-xl border border-white/10 p-3 text-left transition-all duration-300 hover:border-white/20"
         style={{
           background:
@@ -219,6 +225,9 @@ export function Sidebar() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [clientsExpanded, setClientsExpanded] = useState(false);
 
+  // Tracking de botões
+  useButtonTracking();
+
   const isOnClientsFlow =
     pathname === "/clients" || pathname.startsWith("/clients/");
   const hasClientsSteps = Boolean(selectedClient?.id);
@@ -265,6 +274,8 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => handleNavClick("/")}
+            data-tracking-id="sidebar-logo-home"
+            data-tracking-destination="/"
             className="focus:outline-none"
           >
             <Image
@@ -307,6 +318,8 @@ export function Sidebar() {
                       <button
                         type="button"
                         onClick={() => handleNavClick("/clients")}
+                        data-tracking-id="sidebar-nav-clients"
+                        data-tracking-destination="/clients"
                         className="flex min-w-0 flex-1 items-center gap-3"
                       >
                         <ContactsIcon
@@ -326,6 +339,7 @@ export function Sidebar() {
                             e.stopPropagation();
                             setClientsExpanded((v) => !v);
                           }}
+                          data-tracking-id={`sidebar-clients-${clientsExpanded ? "collapse" : "expand"}`}
                           className="shrink-0 rounded-lg p-1 text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
                           aria-label={clientsExpanded ? "Recolher" : "Expandir"}
                         >
@@ -349,6 +363,8 @@ export function Sidebar() {
                           onClick={() =>
                             handleNavClick(`/clients/${selectedClient.id}`)
                           }
+                          data-tracking-id={`sidebar-clients-subitem-${selectedClient.id}`}
+                          data-tracking-destination={`/clients/${selectedClient.id}`}
                           className={cn(
                             "flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-all duration-200",
                             pathname === `/clients/${selectedClient.id}`
@@ -372,6 +388,8 @@ export function Sidebar() {
                                   `/clients/${selectedClient.id}/${selectedRecording.id}`,
                                 )
                               }
+                              data-tracking-id={`sidebar-clients-recording-${selectedRecording.id}`}
+                              data-tracking-destination={`/clients/${selectedClient.id}/${selectedRecording.id}`}
                               className={cn(
                                 "flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-all duration-200",
                                 pathname.includes(
@@ -473,6 +491,7 @@ export function Sidebar() {
                         e.preventDefault();
                         setIsProfileModalOpen(true);
                       }}
+                      data-tracking-id="sidebar-profile-manage"
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50 focus:bg-neutral-50"
                     >
                       <SettingsIcon className="h-4 w-4 text-neutral-400" />
@@ -480,6 +499,8 @@ export function Sidebar() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => window.open(appUrl, "_blank")}
+                      data-tracking-id="sidebar-profile-download-app"
+                      data-tracking-destination={appUrl}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50 focus:bg-neutral-50"
                     >
                       <SmartphoneIcon className="h-4 w-4 text-neutral-400" />
@@ -489,6 +510,8 @@ export function Sidebar() {
                       onSelect={() =>
                         window.open("https://wa.me/5541997819114", "_blank")
                       }
+                      data-tracking-id="sidebar-profile-support"
+                      data-tracking-destination="https://wa.me/5541997819114"
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50 focus:bg-neutral-50"
                     >
                       <SupportIcon className="h-4 w-4 text-neutral-400" />
@@ -500,6 +523,8 @@ export function Sidebar() {
                         await clearSession();
                         router.push("/login");
                       }}
+                      data-tracking-id="sidebar-profile-logout"
+                      data-tracking-destination="/login"
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50 focus:bg-red-50"
                     >
                       <LogoutIcon className="h-4 w-4" />
@@ -521,6 +546,7 @@ export function Sidebar() {
           type="button"
           aria-label="Fechar menu"
           onClick={() => setMobileMenu(false)}
+          data-tracking-id="sidebar-mobile-close"
           className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm md:hidden"
         />
       )}

@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/blocks/table";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,6 +31,9 @@ export function GeneralOthersTable() {
 
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn>(null);
+
+  // Tracking de botões
+  useButtonTracking();
 
   const GeneralRecordingsColumns = [
     { key: "NAME", label: "Título da Gravação", sortable: true },
@@ -112,6 +116,11 @@ export function GeneralOthersTable() {
                   onClick={() =>
                     column.sortable && handleSort(column.key as SortableColumn)
                   }
+                  data-tracking-id={
+                    column.sortable
+                      ? `others-table-sort-${column.key.toLowerCase()}`
+                      : undefined
+                  }
                 >
                   <div
                     className={cn(
@@ -166,6 +175,7 @@ export function GeneralOthersTable() {
                 setRecordingsFilters((prev) => ({ ...prev, page }))
               }
               pages={recordingsTotalPages}
+              trackingPrefix="others"
             />
           </div>
         )}

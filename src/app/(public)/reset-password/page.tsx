@@ -9,6 +9,8 @@ import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
+import { usePageView } from "@/hooks/usePageView";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import Field from "../login/components/field";
 import {
   Form,
@@ -109,6 +111,8 @@ function ResetPasswordContent() {
         </div>
         <Link
           href="/login"
+          data-tracking-id="reset-password-back-to-login-link"
+          data-tracking-destination="/login"
           className="mt-2 text-sm text-primary font-semibold hover:text-blue-700 hover:underline transition-colors"
         >
           Voltar para o login
@@ -135,6 +139,8 @@ function ResetPasswordContent() {
         </div>
         <Link
           href="/login"
+          data-tracking-id="reset-password-success-login-link"
+          data-tracking-destination="/login"
           className="mt-4 w-full rounded-xl bg-primary px-4 py-3 text-center font-semibold text-white shadow-sm transition hover:bg-blue-600"
         >
           Ir para o login
@@ -220,6 +226,7 @@ function ResetPasswordContent() {
           <button
             onClick={form.handleSubmit(handleResetPassword)}
             disabled={isLoading}
+            data-tracking-id="reset-password-submit-button"
             className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (
@@ -234,6 +241,8 @@ function ResetPasswordContent() {
       <div className="mt-4 text-center">
         <Link
           href="/login"
+          data-tracking-id="reset-password-bottom-back-link"
+          data-tracking-destination="/login"
           className="text-sm text-gray-500 hover:text-primary hover:underline transition-colors"
         >
           Voltar para o login
@@ -244,6 +253,11 @@ function ResetPasswordContent() {
 }
 
 export default function ResetPasswordPage() {
+  // Tracking de visualização de tela
+  usePageView();
+  // Tracking de botões
+  useButtonTracking();
+  
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-white p-6">
       <div className="w-full max-w-md">

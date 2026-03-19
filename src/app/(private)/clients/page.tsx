@@ -1,14 +1,27 @@
 "use client";
 import { CreateClientModal } from "@/components/ui/create-client-modal";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
+import { usePageView } from "@/hooks/usePageView";
 import { debounce } from "lodash";
 import { Plus, Search, Users } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GeneralClientsTable } from "./components/general-client-table";
+import { useApiContext } from "@/context/ApiContext";
+import { useTrackingContext } from "@/context/TrackingContext";
+import { Platform } from "@/services/analyticsService";
 
 export default function Clients() {
   const { setClientsFilters } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
+  const { PostAPI } = useApiContext();
+  const { sessionId } = useTrackingContext();
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Tracking de visualização de tela
+  usePageView();
+  // Tracking de botões
+  useButtonTracking();
 
   const handleStopTyping = (value: string) => {
     setClientsFilters((prev) => ({
@@ -24,9 +37,57 @@ export default function Clients() {
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalQuery(e.target.value);
-    debouncedHandleStopTyping(e.target.value);
+    const value = e.target.value;
+    setLocalQuery(value);
+    debouncedHandleStopTyping(value);
+
+    // Tracking de debounce do campo de busca (500ms conforme guia)
+    if (sessionId) {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      searchDebounceRef.current = setTimeout(async () => {
+        try {
+          if (value && value.length > 0) {
+            await PostAPI(
+              "/analytics/actions",
+              {
+                actionType: "BUTTON_CLICKED",
+                platform: Platform.WEB,
+                metadata: {
+                  field: "clients-search",
+                  hasValue: true,
+                  valueLength: value.length,
+                },
+              },
+              true
+            );
+
+            if (process.env.NODE_ENV === "development") {
+              console.log("📝 [Tracking] Campo de busca rastreado:", {
+                field: "clients-search",
+                hasValue: true,
+              });
+            }
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [Tracking] Erro ao rastrear campo de busca:", error);
+          }
+        }
+      }, 500);
+    }
   };
+
+  // Cleanup do debounce
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   const [isCreateClientModalOpen, setIsCreateClientModalOpen] = useState(false);
 
@@ -62,6 +123,7 @@ export default function Clients() {
           {/* New patient button */}
           <button
             onClick={() => setIsCreateClientModalOpen(true)}
+            data-tracking-id="clients-new-patient-button"
             className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 transition-all hover:shadow-sky-500/50 hover:brightness-110 active:scale-95"
           >
             <Plus className="h-4 w-4" />

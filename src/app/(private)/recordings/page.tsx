@@ -1,9 +1,11 @@
 "use client";
 import { useGeneralContext } from "@/context/GeneralContext";
 import {
-  consumeTourFinalStepPending,
-  showRecordingTourFinalStep,
+    consumeTourFinalStepPending,
+    showRecordingTourFinalStep,
 } from "@/context/RecordingTourContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
+import { usePageView } from "@/hooks/usePageView";
 import { cn } from "@/utils/cn";
 import { debounce } from "lodash";
 import { Bell, Folder, GraduationCap, Search, Stethoscope } from "lucide-react";
@@ -15,6 +17,9 @@ type SortDirection = "ASC" | "DESC" | null;
 export default function Recordings() {
   const { setRecordingsFilters, recordingsFilters } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
+
+  usePageView();
+  useButtonTracking();
 
   const handleStopTyping = (value: string) => {
     setRecordingsFilters((prev) => ({
@@ -66,6 +71,7 @@ export default function Recordings() {
         <div className="flex h-max flex-col gap-2 min-[1025px]:flex-row min-[1025px]:items-center">
           <div className="order-2 flex h-max items-center gap-1 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 p-1 min-[1025px]:order-1">
             <button
+              data-tracking-id="recordings-filter-client"
               onClick={() => handleTypeFilter("CLIENT")}
               className={cn(
                 "flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all",
@@ -83,6 +89,7 @@ export default function Recordings() {
               Consulta
             </button>
             <button
+              data-tracking-id="recordings-filter-reminder"
               onClick={() => handleTypeFilter("REMINDER")}
               className={cn(
                 "flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all",
@@ -100,6 +107,7 @@ export default function Recordings() {
               Lembretes
             </button>
             <button
+              data-tracking-id="recordings-filter-study"
               onClick={() => handleTypeFilter("STUDY")}
               className={cn(
                 "flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all",
@@ -117,6 +125,7 @@ export default function Recordings() {
               Estudos
             </button>
             <button
+              data-tracking-id="recordings-filter-other"
               onClick={() => handleTypeFilter("OTHER")}
               className={cn(
                 "flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all",

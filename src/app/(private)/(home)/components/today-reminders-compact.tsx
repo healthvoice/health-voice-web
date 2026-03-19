@@ -3,12 +3,13 @@
 import { ReminderProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bell, Check, Plus, X } from "lucide-react";
 import moment from "moment";
-import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 interface LocalStatus {
   [id: string]: "pending" | "completed" | "cancelled";
@@ -29,6 +30,9 @@ export function TodayRemindersCompact({
     reminders: apiReminders,
     isGettingReminders,
   } = useGeneralContext();
+
+  // Tracking de botões
+  useButtonTracking();
 
   const [localStatuses, setLocalStatuses] = useState<LocalStatus>({});
 
@@ -145,6 +149,7 @@ export function TodayRemindersCompact({
               </p>
               <button
                 onClick={onNewReminderClick}
+                data-tracking-id="home-reminders-empty-create"
                 className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-100 bg-white/60 px-4 py-2 text-sm font-medium text-sky-600 shadow-sm transition-colors hover:bg-white"
               >
                 <Plus className="h-4 w-4" />
@@ -201,6 +206,7 @@ export function TodayRemindersCompact({
                         e.stopPropagation();
                         updateStatus(reminder.id, "completed");
                       }}
+                      data-tracking-id={`home-reminders-complete-${reminder.id}`}
                       className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                       title="Concluir"
                     >
@@ -211,6 +217,7 @@ export function TodayRemindersCompact({
                         e.stopPropagation();
                         updateStatus(reminder.id, "cancelled");
                       }}
+                      data-tracking-id={`home-reminders-cancel-${reminder.id}`}
                       className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                       title="Excluir"
                     >
@@ -224,6 +231,7 @@ export function TodayRemindersCompact({
                       e.stopPropagation();
                       updateStatus(reminder.id, "pending");
                     }}
+                    data-tracking-id={`home-reminders-undo-${reminder.id}`}
                     className="shrink-0 text-xs font-medium text-slate-400 transition-colors hover:text-blue-600"
                   >
                     Desfazer
@@ -236,6 +244,8 @@ export function TodayRemindersCompact({
       </div>
       <button
         onClick={() => router.push("/reminders")}
+        data-tracking-id="home-reminders-see-all"
+        data-tracking-destination="/reminders"
         className="relative z-10 mt-1 mb-3 flex shrink-0 items-center gap-1 self-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
       >
         Ver todos

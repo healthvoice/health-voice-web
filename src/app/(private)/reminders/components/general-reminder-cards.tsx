@@ -121,6 +121,7 @@ export function GeneralRemindersCards() {
               setRemindersFilters((prev) => ({ ...prev, page }))
             }
             pages={remindersTotalPages}
+            trackingPrefix="reminders"
           />
         </div>
       )}

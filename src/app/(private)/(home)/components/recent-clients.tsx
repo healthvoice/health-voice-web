@@ -2,6 +2,7 @@
 
 import { ClientProps } from "@/@types/general-client";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { motion } from "framer-motion";
 import { ArrowRight, Plus, UserCircle2, Users } from "lucide-react";
@@ -21,6 +22,9 @@ interface RecentClientsProps {
 export function RecentClients({ className }: RecentClientsProps) {
   const router = useRouter();
   const { clients: apiClients, isGettingClients } = useGeneralContext();
+  
+  // Tracking de botões
+  useButtonTracking();
 
   const clients = useMemo(() => {
     return apiClients.slice(0, 4);
@@ -83,6 +87,8 @@ export function RecentClients({ className }: RecentClientsProps) {
             </p>
             <button
               onClick={() => router.push("/clients?action=new")}
+              data-tracking-id="home-clients-empty-create"
+              data-tracking-destination="/clients?action=new"
               className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-100 bg-white/60 px-4 py-2 text-sm font-medium text-sky-600 shadow-sm transition-colors hover:bg-white"
             >
               <Plus className="h-4 w-4" />
@@ -99,6 +105,8 @@ export function RecentClients({ className }: RecentClientsProps) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2, delay: idx * 0.04 }}
                 onClick={() => router.push(`/clients/${client.id}`)}
+                data-tracking-id={`home-clients-item-${client.id}`}
+                data-tracking-destination={`/clients/${client.id}`}
                 className="group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left transition-all hover:bg-white/80 hover:shadow-md hover:shadow-sky-500/5 active:scale-[0.99]"
               >
                 {/* Avatar */}
@@ -121,6 +129,8 @@ export function RecentClients({ className }: RecentClientsProps) {
       </div>
       <button
         onClick={() => router.push("/clients")}
+        data-tracking-id="home-clients-see-all"
+        data-tracking-destination="/clients"
         className="relative z-10 mt-1 mb-3 flex shrink-0 items-center gap-1 self-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-600 transition-all hover:bg-white/80 hover:shadow-sm active:scale-95"
       >
         Ver todos

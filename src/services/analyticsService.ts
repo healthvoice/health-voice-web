@@ -22,7 +22,7 @@ interface PostAPIFunction {
 export async function startSession(
   PostAPI: PostAPIFunction,
   locationData?: GeolocationData | null
-) {
+): Promise<string | null> {
   try {
     const deviceInfo: DeviceInfo = {
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -46,16 +46,34 @@ export async function startSession(
       payload.locationTimestamp = new Date(locationData.timestamp).toISOString();
     }
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔐 [Tracking] Iniciando sessão de analytics...');
+    }
+
     const response = await PostAPI(
       '/analytics/session/start',
       payload,
       true,
     );
 
-    if (response.status !== 200) {
-      console.error('Erro ao iniciar sessão de analytics:', response.status);
+    if (response.status === 200 && response.body?.session?.id) {
+      const sessionId = response.body.session.id;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ [Tracking] Sessão iniciada com sucesso:', { sessionId });
+      }
+      
+      return sessionId;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [Tracking] Erro ao iniciar sessão de analytics:', response.status);
+      }
+      return null;
     }
   } catch (error) {
-    console.error('Erro ao iniciar sessão de analytics:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [Tracking] Erro ao iniciar sessão de analytics:', error);
+    }
+    return null;
   }
 }

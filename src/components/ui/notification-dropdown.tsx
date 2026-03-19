@@ -1,6 +1,7 @@
 "use client";
 
 import type { NotificationProps } from "@/@types/general-client";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useNotifications } from "@/hooks/useNotifications";
 import { cn } from "@/utils/cn";
 import { convertAppRouteToWeb } from "@/utils/route-mapper";
@@ -8,9 +9,9 @@ import { Bell, Loader2 } from "lucide-react";
 import moment from "moment";
 import { useRouter } from "next/navigation";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
 } from "./blocks/dropdown-menu";
 
 function NotificationItem({
@@ -34,10 +35,16 @@ function NotificationItem({
     }
   };
 
+  const destination = notification.route
+    ? convertAppRouteToWeb(notification.route, notification.params)
+    : "/notifications";
+
   return (
     <button
       type="button"
       onClick={handleClick}
+      data-tracking-id={`sidebar-notification-item-${notification.id}`}
+      data-tracking-destination={destination}
       className={cn(
         "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-100",
         !notification.opened && "bg-primary/5",
@@ -77,12 +84,16 @@ export function NotificationDropdown() {
     fetchNotifications,
   } = useNotifications({ poll: true });
   const router = useRouter();
+  
+  // Tracking de botões
+  useButtonTracking();
 
   return (
     <DropdownMenu onOpenChange={(open) => open && fetchNotifications(1)}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
+          data-tracking-id="sidebar-notifications-open"
           className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
           aria-label="Notificações"
         >
@@ -142,6 +153,7 @@ export function NotificationDropdown() {
               type="button"
               onClick={markAllAsRead}
               disabled={markingAllAsRead}
+              data-tracking-id="sidebar-notifications-mark-all-read"
               className={cn(
                 "flex items-center justify-center gap-2 w-full rounded-lg py-2 text-center text-sm font-medium transition-colors",
                 markingAllAsRead
@@ -160,6 +172,8 @@ export function NotificationDropdown() {
             onClick={() => {
               router.push("/notifications");
             }}
+            data-tracking-id="sidebar-notifications-see-all"
+            data-tracking-destination="/notifications"
             className="text-primary hover:bg-primary/10 w-full rounded-lg py-2 text-center text-sm font-medium transition-colors"
           >
             Ver todas as notificações

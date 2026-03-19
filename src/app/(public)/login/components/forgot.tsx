@@ -1,3 +1,5 @@
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
 
@@ -5,6 +7,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import Field from "./field";
 import { Form, FormField, FormItem, FormMessage } from "./form";
 
@@ -21,6 +24,9 @@ type EmailFormData = z.infer<typeof EmailFormSchema>;
 const ForgotPassword = ({ onClick }: ForgotPasswordProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  
+  // Tracking de botões
+  useButtonTracking();
 
   const form = useForm<EmailFormData>({
     resolver: zodResolver(EmailFormSchema),
@@ -69,6 +75,7 @@ const ForgotPassword = ({ onClick }: ForgotPasswordProps) => {
         <div className="mb-6">
           <button
             onClick={() => onClick()}
+            data-tracking-id="forgot-password-back-button"
             className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-800 transition-colors"
           >
             <ArrowLeft size={16} />
@@ -99,6 +106,7 @@ const ForgotPassword = ({ onClick }: ForgotPasswordProps) => {
               setEmailSent(false);
               form.reset();
             }}
+            data-tracking-id="forgot-password-try-another-email-button"
             className="mt-2 text-sm text-primary hover:text-blue-700 hover:underline transition-colors"
           >
             Tentar com outro e-mail
@@ -113,6 +121,7 @@ const ForgotPassword = ({ onClick }: ForgotPasswordProps) => {
       <div className="mb-6">
         <button
           onClick={() => onClick()}
+          data-tracking-id="forgot-password-back-to-login-button"
           className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -150,6 +159,7 @@ const ForgotPassword = ({ onClick }: ForgotPasswordProps) => {
           <button
             onClick={form.handleSubmit(handleSendResetEmail)}
             disabled={isLoading}
+            data-tracking-id="forgot-password-submit-button"
             className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (

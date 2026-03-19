@@ -3,6 +3,7 @@ import { RecordingDetailsProps } from "@/@types/general-client";
 import { TableCell, TableRow } from "@/components/ui/blocks/table";
 import { StudyIcon } from "@/components/ui/custom-icons";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ChevronRight } from "lucide-react";
 import moment from "moment";
@@ -16,6 +17,9 @@ interface Props {
 export function GeneralStudiesTableItem({ recording }: Props) {
   const { setSelectedRecording } = useGeneralContext();
   const router = useRouter();
+
+  // Tracking de botões
+  useButtonTracking();
 
   const handleNavigation = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -53,6 +57,8 @@ export function GeneralStudiesTableItem({ recording }: Props) {
     <TableRow
       onClick={handleNavigation}
       key={recording.id}
+      data-tracking-id={`studies-table-row-${recording.id}`}
+      data-tracking-destination={`/studies/${recording.id}`}
       className="group h-20 cursor-pointer border-b border-gray-100 bg-white transition-all duration-300 hover:bg-slate-50 hover:shadow-sm"
     >
       <TableCell className="w-[40%] py-4 pl-6 text-start">
@@ -93,6 +99,8 @@ export function GeneralStudiesTableItem({ recording }: Props) {
         <div className="flex items-center justify-end">
           <button
             onClick={handleNavigation}
+            data-tracking-id={`studies-table-access-${recording.id}`}
+            data-tracking-destination={`/studies/${recording.id}`}
             className="group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary hover:!bg-primary hover:shadow-primary/25 flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-all duration-300 hover:!text-white"
           >
             <span>Acessar</span>

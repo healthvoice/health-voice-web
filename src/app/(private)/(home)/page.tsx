@@ -7,7 +7,10 @@ import { useApiContext } from "@/context/ApiContext";
 import { useSession } from "@/context/auth";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { TOUR_ENABLED, getTourCompleted, useRecordingTour } from "@/context/RecordingTourContext";
+import { useTrackingContext } from "@/context/TrackingContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { usePageView } from "@/hooks/usePageView";
 import { startSession } from "@/services/analyticsService";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
@@ -58,6 +61,7 @@ export default function HomePage() {
   const pathname = usePathname();
   const { profile } = useSession();
   const { PostAPI } = useApiContext();
+  const { setSessionId } = useTrackingContext();
   const {
     GetReminders,
     GetRecordings,
@@ -67,6 +71,10 @@ export default function HomePage() {
   } = useGeneralContext();
   const { startTour } = useRecordingTour();
   const now = useLiveTime();
+
+  // Tracking hooks
+  usePageView();
+  useButtonTracking();
 
   // Reset filters when entering the home page so recent items are not restricted
   // by filters applied in other pages (like specific client views).
@@ -93,11 +101,19 @@ export default function HomePage() {
 
   useEffect(() => {
     if (fullData) {
-      startSession(PostAPI, fullData).catch((err) =>
-        console.warn("Erro ao enviar localização:", err),
-      );
+      startSession(PostAPI, fullData)
+        .then((sessionId) => {
+          if (sessionId) {
+            setSessionId(sessionId);
+          }
+        })
+        .catch((err) => {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("Erro ao enviar localização:", err);
+          }
+        });
     }
-  }, [fullData, PostAPI]);
+  }, [fullData, PostAPI, setSessionId]);
 
   useEffect(() => {
     if (!TOUR_ENABLED) return;

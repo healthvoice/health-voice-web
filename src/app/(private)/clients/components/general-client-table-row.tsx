@@ -4,6 +4,7 @@ import { useGeneralContext } from "@/context/GeneralContext";
 import { FileText } from "lucide-react";
 import "moment/locale/pt-br";
 import { useRouter } from "next/navigation";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 
 interface Props {
   client: ClientProps;
@@ -13,6 +14,9 @@ export function GeneralClientTableItem({ client }: Props) {
   const { setSelectedClient, recordingsFilters, setRecordingsFilters } =
     useGeneralContext();
   const router = useRouter();
+
+  // Tracking de botões
+  useButtonTracking();
 
   const handleNavigation = () => {
     setSelectedClient(client);
@@ -39,6 +43,8 @@ export function GeneralClientTableItem({ client }: Props) {
   return (
     <div
       onClick={handleNavigation}
+      data-tracking-id={`clients-card-${client.id}`}
+      data-tracking-destination={`/clients/${client.id}`}
       className="group relative flex cursor-pointer flex-col gap-4 overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-sky-100 hover:shadow-xl hover:shadow-sky-500/10"
     >
       {/* Decorative top gradient bar */}

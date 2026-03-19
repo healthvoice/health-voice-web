@@ -1,16 +1,17 @@
 // context/auth.tsx
 "use client";
 import React, {
-  PropsWithChildren,
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
+    PropsWithChildren,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
 } from "react";
-import { useApiContext } from "./ApiContext";
 import { startSession } from "../services/analyticsService";
+import { useApiContext } from "./ApiContext";
+import { useTrackingContext } from "./TrackingContext";
 
 const ACCESS_TOKEN_COOKIE = "hv_access_token";
 
@@ -61,6 +62,7 @@ function hasAccessToken(): boolean {
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const { GetAPI, PostAPI } = useApiContext();
+  const { setSessionId } = useTrackingContext();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<User | null>(null);
   const [availableRecording, setAvailableRecording] = useState(0);
@@ -87,6 +89,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setTotalRecording(0);
       setIsTrial(false);
       setAvailabilityLoaded(false);
+      setSessionId(null); // Limpar sessionId ao fazer logout
 
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -95,7 +98,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     } catch (error) {
       console.error("❌ Erro ao fazer sign out:", error);
     }
-  }, []);
+  }, [setSessionId]);
 
   /**
    * Busca o perfil do usuário.
@@ -122,9 +125,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
           // Iniciar tracking de sessão após sucesso na busca do perfil
           try {
-            await startSession(PostAPI);
+            const sessionId = await startSession(PostAPI);
+            if (sessionId) {
+              setSessionId(sessionId);
+            }
           } catch (error) {
-            console.error("Erro ao iniciar sessão de analytics:", error);
+            if (process.env.NODE_ENV === "development") {
+              console.error("Erro ao iniciar sessão de analytics:", error);
+            }
           }
         } else if (response.status === 401) {
           // Token expirado ou inválido — o interceptor já tentou refresh
@@ -143,7 +151,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         isLoadingProfile.current = false;
       }
     },
-    [GetAPI, PostAPI, forceSignOut],
+    [GetAPI, PostAPI, forceSignOut, setSessionId],
   );
 
   /**

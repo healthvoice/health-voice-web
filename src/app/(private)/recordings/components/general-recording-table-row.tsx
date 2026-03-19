@@ -1,19 +1,21 @@
+"use client";
 import { ClientProps, RecordingDetailsProps } from "@/@types/general-client";
 import { TableCell, TableRow } from "@/components/ui/blocks/table";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@/components/ui/blocks/tooltip";
 import {
-  ContactsIcon,
-  NotesIcon,
-  OtherIcon,
-  StudyIcon,
-  TranscriptionIcon,
+    ContactsIcon,
+    NotesIcon,
+    OtherIcon,
+    StudyIcon,
+    TranscriptionIcon,
 } from "@/components/ui/custom-icons";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ChevronRight } from "lucide-react";
 import moment from "moment";
@@ -30,6 +32,8 @@ export function GeneralRecordingTableItem({ recording }: Props) {
     setRecordingsFilters,
   } = useGeneralContext();
   const router = useRouter();
+
+  useButtonTracking();
 
   const handleNavigation = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -134,6 +138,14 @@ export function GeneralRecordingTableItem({ recording }: Props) {
 
   return (
     <TableRow
+      data-tracking-id={`recordings-table-row-${recording.type.toLowerCase()}-${recording.id}`}
+      data-tracking-destination={recording.type === "CLIENT" 
+        ? `/clients/${recording.client?.id}/${recording.id}`
+        : recording.type === "STUDY"
+        ? `/studies/${recording.id}`
+        : recording.type === "OTHER"
+        ? `/others/${recording.id}`
+        : `/reminders/${recording.id}`}
       onClick={handleNavigation}
       key={recording.id}
       className="group h-16 cursor-pointer border-b border-gray-100 bg-white transition-all duration-200 hover:bg-gray-50"
@@ -205,6 +217,14 @@ export function GeneralRecordingTableItem({ recording }: Props) {
       <TableCell className="py-2 pr-4 text-xs font-medium whitespace-nowrap text-zinc-400">
         <div className="flex items-center justify-end">
           <button
+            data-tracking-id={`recordings-table-access-${recording.type.toLowerCase()}-${recording.id}`}
+            data-tracking-destination={recording.type === "CLIENT" 
+              ? `/clients/${recording.client?.id}/${recording.id}`
+              : recording.type === "STUDY"
+              ? `/studies/${recording.id}`
+              : recording.type === "OTHER"
+              ? `/others/${recording.id}`
+              : `/reminders/${recording.id}`}
             onClick={handleNavigation}
             className="group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary hover:!bg-primary hover:shadow-primary/25 flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-all duration-300 hover:!text-white"
           >

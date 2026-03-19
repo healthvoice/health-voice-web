@@ -1,5 +1,6 @@
 import { ApiContextProvider } from "@/context/ApiContext";
 import { SessionProvider } from "@/context/auth";
+import { TrackingProvider } from "@/context/TrackingContext";
 import moment from "moment";
 import "moment/locale/pt-br";
 import { Poppins } from "next/font/google";
@@ -66,7 +67,9 @@ export default function RootLayout({
           }}
         />
         <ApiContextProvider>
-          <SessionProvider>{children}</SessionProvider>
+          <TrackingProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </TrackingProvider>
         </ApiContextProvider>
       </body>
     </html>
