@@ -14,6 +14,7 @@ import {
   ScrollText,
   Sparkles,
 } from "lucide-react";
+import moment from "moment";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -29,26 +30,6 @@ const ALL_TABS = [
 const TABS_WITHOUT_MEDICAL_RECORD = ALL_TABS.filter(
   (t) => t.segment !== "medical-record",
 );
-
-function formatDuration(seconds?: number) {
-  if (!seconds) return null;
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function formatDate(dateStr?: string) {
-  if (!dateStr) return null;
-  try {
-    return new Date(dateStr).toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return null;
-  }
-}
 
 export default function AppointmentDetailLayout({
   children,
@@ -133,7 +114,15 @@ export default function AppointmentDetailLayout({
     if (isNote && pathname.includes("/medical-record")) {
       router.replace(base);
     }
-  }, [resolved, clientId, recordingId, selectedRecording?.type, pathname, base, router]);
+  }, [
+    resolved,
+    clientId,
+    recordingId,
+    selectedRecording?.type,
+    pathname,
+    base,
+    router,
+  ]);
 
   if (!resolved && loading) {
     return (
@@ -152,8 +141,7 @@ export default function AppointmentDetailLayout({
 
   const isNote = selectedRecording?.type === "OTHER";
   const tabs = isNote ? TABS_WITHOUT_MEDICAL_RECORD : ALL_TABS;
-  const shouldRedirectToResumo =
-    isNote && pathname.includes("/medical-record");
+  const shouldRedirectToResumo = isNote && pathname.includes("/medical-record");
 
   if (shouldRedirectToResumo) {
     return (
@@ -184,7 +172,6 @@ export default function AppointmentDetailLayout({
         .toUpperCase()
     : "?";
 
-  const formattedDate = formatDate(selectedRecording?.createdAt);
   const formattedDuration = selectedRecording?.duration;
 
   return (
@@ -225,10 +212,12 @@ export default function AppointmentDetailLayout({
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  {formattedDate && (
+                  {selectedRecording?.createdAt && (
                     <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
                       <Calendar className="h-3 w-3" />
-                      {formattedDate}
+                      {moment(selectedRecording.createdAt).format(
+                        "DD/MM/YYYY - HH:mm",
+                      )}
                     </span>
                   )}
                   {formattedDuration && (

@@ -1,5 +1,10 @@
 // "use client";
 
+// Exportação mínima para tornar este arquivo um módulo válido
+export default function Page() {
+  return null;
+}
+
 // import { useApiContext } from "@/context/ApiContext";
 // import { useGeneralContext } from "@/context/GeneralContext";
 // import { useSession } from "@/context/auth";

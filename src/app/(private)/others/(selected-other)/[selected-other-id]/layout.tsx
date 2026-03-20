@@ -1,8 +1,8 @@
 "use client";
 
+import { OtherIcon } from "@/components/ui/custom-icons";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { OtherIcon } from "@/components/ui/custom-icons";
 import { cn } from "@/utils/cn";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   ScrollText,
   Sparkles,
 } from "lucide-react";
+import moment from "moment";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -147,7 +148,6 @@ export default function SelectedOtherLayout({
     return "";
   })();
 
-  const formattedDate = formatDate(selectedRecording?.createdAt);
   const formattedDuration = selectedRecording?.duration;
 
   return (
@@ -174,7 +174,7 @@ export default function SelectedOtherLayout({
 
               <div className="flex flex-1 flex-row justify-between">
                 <div className="flex flex-1 flex-col">
-                  <h1 className="text-2xl leading-tight font-bold text-white truncate">
+                  <h1 className="truncate text-2xl leading-tight font-bold text-white">
                     {selectedRecording?.name || "Outra gravação"}
                   </h1>
                   <p className="mt-0.5 text-sm font-medium text-white/80">
@@ -183,10 +183,12 @@ export default function SelectedOtherLayout({
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  {formattedDate && (
+                  {selectedRecording?.createdAt && (
                     <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
                       <Calendar className="h-3 w-3" />
-                      {formattedDate}
+                      {moment(selectedRecording.createdAt).format(
+                        "DD/MM/YYYY - HH:mm",
+                      )}
                     </span>
                   )}
                   {formattedDuration && (
