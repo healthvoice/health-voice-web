@@ -25,10 +25,7 @@ export function TodayRemindersCompact({
 }: TodayRemindersCompactProps) {
   const { PutAPI } = useApiContext();
   const router = useRouter();
-  const {
-    reminders: apiReminders,
-    isGettingReminders,
-  } = useGeneralContext();
+  const { reminders: apiReminders, isGettingReminders } = useGeneralContext();
 
   const [localStatuses, setLocalStatuses] = useState<LocalStatus>({});
 

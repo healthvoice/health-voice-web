@@ -1,5 +1,6 @@
 "use client";
 
+import { NewReminderModal } from "@/app/(private)/reminders/components/new-reminder-modal";
 import { useApiContext } from "@/context/ApiContext";
 import { useSession } from "@/context/auth";
 import { useGeneralContext } from "@/context/GeneralContext";
@@ -12,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange } from "react-day-picker";
 import { CompleteRegistrationModal } from "./components/complete-registration-modal";
 import { ContentPanel } from "./components/content-panel";
-import { WelcomeTourModal } from "./components/welcome-tour-modal";
 import { DateRangePicker } from "./components/date-range-picker";
 import { KPICard } from "./components/kpi-card";
 import { RecordingsChart } from "./components/recordings-chart";
@@ -20,6 +20,7 @@ import { TrialAppModal } from "./components/trial-app-modal";
 import { UpcomingMeetings } from "./components/upcoming-meetings";
 import { UpcomingReminders } from "./components/upcoming-reminders";
 import { UpgradePlanBanner } from "./components/upgrade-plan-banner";
+import { WelcomeTourModal } from "./components/welcome-tour-modal";
 
 // Helper para formatar data para API (YYYY-MM-DD)
 const formatDateForAPI = (date: Date): string => {
@@ -34,16 +35,30 @@ const formatDateForAPI = (date: Date): string => {
 export default function HomePage() {
   const pathname = usePathname();
   const { profile } = useSession();
-  const { dashboardStats, isGettingDashboardStats, GetDashboardStats } =
-    useGeneralContext();
+  const {
+    dashboardStats,
+    isGettingDashboardStats,
+    GetDashboardStats,
+    GetReminders,
+  } = useGeneralContext();
   const { PostAPI } = useApiContext();
   const { startTour } = useRecordingTour();
-  const [trialAppModalOpen, setTrialAppModalOpen] = useState<boolean | null>(null);
+  const [trialAppModalOpen, setTrialAppModalOpen] = useState<boolean | null>(
+    null,
+  );
   const [showWelcomeTourModal, setShowWelcomeTourModal] = useState(false);
+  const [newReminderModalOpen, setNewReminderModalOpen] = useState(false);
   const prevTrialModalRef = useRef<boolean | null>(null);
 
   // Geolocalização
-  const { latitude, longitude, fullData, error: geolocationError, isLoading: isLoadingLocation, requestLocation } = useGeolocation();
+  const {
+    latitude,
+    longitude,
+    fullData,
+    error: geolocationError,
+    isLoading: isLoadingLocation,
+    requestLocation,
+  } = useGeolocation();
 
   // Date range state - default to last 7 days
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -59,9 +74,9 @@ export default function HomePage() {
       // Se não tiver "to", usar o mesmo dia que "from" (seleção de um único dia)
       const startDate = formatDateForAPI(dateRange.from);
       const endDate = formatDateForAPI(dateRange.to || dateRange.from);
-      
+
       console.log(`[HomePage] Fetching stats: ${startDate} to ${endDate}`);
-      
+
       GetDashboardStats({
         startDate,
         endDate,
@@ -103,7 +118,7 @@ export default function HomePage() {
   useEffect(() => {
     if (fullData) {
       startSession(PostAPI, fullData).catch((error) => {
-        console.warn('Erro ao enviar localização na sessão:', error);
+        console.warn("Erro ao enviar localização na sessão:", error);
       });
     }
   }, [fullData, PostAPI]);
@@ -118,10 +133,13 @@ export default function HomePage() {
       console.log(day, "day");
       const date = new Date(day.date + "T00:00:00");
       console.log(date, "date");
-      console.log(date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-      }), "date.toLocaleDateString");
+      console.log(
+        date.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        }),
+        "date.toLocaleDateString",
+      );
       return {
         date: date.toLocaleDateString("pt-BR", {
           day: "2-digit",
@@ -130,7 +148,6 @@ export default function HomePage() {
         recordings: day.count,
       };
     });
-
   }, [dashboardStats]);
 
   // KPIs baseados nos dados reais
@@ -144,7 +161,7 @@ export default function HomePage() {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
@@ -229,7 +246,9 @@ export default function HomePage() {
       title: "Tempo por contato",
       value: isGettingDashboardStats
         ? "..."
-        : totalClients > 0 ? formattedAvgDuration : "—",
+        : totalClients > 0
+          ? formattedAvgDuration
+          : "—",
       subtitle: "média por contato",
       icon: Activity,
       variant: "info" as const,
@@ -237,14 +256,17 @@ export default function HomePage() {
     },
   ];
   console.log(chartData, "chartData");
-  
+
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Dashboard Header */}
       <div className="flex w-full flex-row flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-gray-500">
-            Bem vindo(a), <span className="font-semibold text-gray-700">{profile?.name ?? "..."}</span>
+            Bem vindo(a),{" "}
+            <span className="font-semibold text-gray-700">
+              {profile?.name ?? "..."}
+            </span>
           </p>
           <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
         </div>
@@ -287,13 +309,21 @@ export default function HomePage() {
       {/* Reminders and Content Section */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Upcoming Reminders - takes 1 column (same width as Meetings) */}
-        <UpcomingReminders className="min-h-[320px]" />
+        <UpcomingReminders
+          className="min-h-[320px]"
+          onNewReminderClick={() => setNewReminderModalOpen(true)}
+        />
 
         {/* Content Panel - takes 2 columns (same width as Chart) */}
         <ContentPanel className="min-h-[320px] lg:col-span-2" />
       </div>
 
       <CompleteRegistrationModal />
+      <NewReminderModal
+        open={newReminderModalOpen}
+        onOpenChange={setNewReminderModalOpen}
+        onSuccess={GetReminders}
+      />
       <TrialAppModal onOpenChange={setTrialAppModalOpen} />
       <WelcomeTourModal
         isOpen={showWelcomeTourModal}
