@@ -11,7 +11,13 @@ interface UpgradePlanBannerProps {
 }
 
 export function UpgradePlanBanner({ className }: UpgradePlanBannerProps) {
-  const { isTrial, availableRecording, totalRecording, profile, availabilityLoaded } = useSession();
+  const {
+    isTrial,
+    availableRecording,
+    totalRecording,
+    profile,
+    availabilityLoaded,
+  } = useSession();
   const router = useRouter();
 
   const isExpired =
@@ -60,6 +66,8 @@ export function UpgradePlanBanner({ className }: UpgradePlanBannerProps) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       onClick={() => router.push("/plans")}
+      data-tracking-id={isTrial ? "upgrade-plan-banner-trial" : "upgrade-plan-banner-expired"}
+      data-tracking-destination="/plans"
       className={cn(
         "group relative cursor-pointer overflow-hidden rounded-2xl border border-white/15 p-4 shadow-lg transition-all duration-500 hover:shadow-xl hover:shadow-blue-900/30 sm:p-5",
         className,
