@@ -8,9 +8,9 @@ import { Bell, Loader2 } from "lucide-react";
 import moment from "moment";
 import { useRouter } from "next/navigation";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
 } from "./blocks/dropdown-menu";
 
 function NotificationItem({
@@ -24,10 +24,14 @@ function NotificationItem({
 
   const handleClick = () => {
     if (!notification.opened) onMarkAsRead(notification.id);
-    
+
     if (notification.route) {
       // Converte rota do app para rota do web
-      const webRoute = convertAppRouteToWeb(notification.route, notification.params);
+      const webRoute = convertAppRouteToWeb(
+        notification.route,
+        notification.params,
+      );
+      console.log("webRoute", webRoute);
       router.push(webRoute);
     } else {
       router.push("/notifications");
@@ -82,8 +86,9 @@ export function NotificationDropdown() {
     markingAllAsRead,
     fetchNotifications,
   } = useNotifications({ poll: true });
+
   const router = useRouter();
-  
+
   return (
     <DropdownMenu onOpenChange={(open) => open && fetchNotifications(1)}>
       <DropdownMenuTrigger asChild>
@@ -105,7 +110,7 @@ export function NotificationDropdown() {
         align="end"
         side="right"
         sideOffset={8}
-        className="z-[10050] flex w-[360px] max-h-[min(420px,85vh)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-lg"
+        className="z-[10050] flex max-h-[min(420px,85vh)] w-[360px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-lg"
         data-lenis-prevent
         onWheel={(e) => e.stopPropagation()}
       >
@@ -115,7 +120,7 @@ export function NotificationDropdown() {
           </h3>
         </div>
         <div
-          className="max-h-[320px] min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
+          className="max-h-[320px] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain"
           data-lenis-prevent
           onWheel={(e) => e.stopPropagation()}
         >
@@ -143,7 +148,7 @@ export function NotificationDropdown() {
             </div>
           )}
         </div>
-        <div className="border-t border-neutral-100 p-2 space-y-2">
+        <div className="space-y-2 border-t border-neutral-100 p-2">
           {unreadCount > 0 && (
             <button
               type="button"
@@ -151,15 +156,13 @@ export function NotificationDropdown() {
               disabled={markingAllAsRead}
               data-tracking-id="sidebar-notifications-mark-all-read"
               className={cn(
-                "flex items-center justify-center gap-2 w-full rounded-lg py-2 text-center text-sm font-medium transition-colors",
+                "flex w-full items-center justify-center gap-2 rounded-lg py-2 text-center text-sm font-medium transition-colors",
                 markingAllAsRead
-                  ? "text-neutral-400 cursor-not-allowed"
-                  : "text-primary hover:bg-primary/10"
+                  ? "cursor-not-allowed text-neutral-400"
+                  : "text-primary hover:bg-primary/10",
               )}
             >
-              {markingAllAsRead && (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
+              {markingAllAsRead && <Loader2 className="h-4 w-4 animate-spin" />}
               {markingAllAsRead ? "Marcando..." : "Marcar todas como lidas"}
             </button>
           )}

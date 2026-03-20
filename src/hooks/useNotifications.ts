@@ -2,8 +2,8 @@
 
 import type { NotificationProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
-import { getCurrentPlatform } from "@/utils/platform";
 import { handleApiError } from "@/utils/error-handler";
+import { getCurrentPlatform } from "@/utils/platform";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -28,8 +28,7 @@ export function useNotifications(options?: { poll?: boolean }) {
         `notification?page=${pageNum}`,
         true,
       );
-      console.log(body);
-      console.log(status);
+      console.log("body", body);
       setLoading(false);
       if (status !== 200 || !body?.notifications) {
         const errorMessage = handleApiError(
@@ -54,7 +53,7 @@ export function useNotifications(options?: { poll?: boolean }) {
     async (notificationId: string) => {
       const { status } = await PutAPI(
         `notification/${notificationId}`,
-        { 
+        {
           opened: true,
           openedPlatform: getCurrentPlatform(),
           openedAt: new Date().toISOString(),
@@ -78,9 +77,7 @@ export function useNotifications(options?: { poll?: boolean }) {
         true,
       );
       if (status !== 200) return;
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, opened: true })),
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, opened: true })));
     } finally {
       setMarkingAllAsRead(false);
     }
