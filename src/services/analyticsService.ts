@@ -77,3 +77,83 @@ export async function startSession(
     return null;
   }
 }
+
+/**
+ * Envia um ping de sessão ativa
+ * Armazena o ping no backend para processamento pelo cronjob
+ */
+export async function pingSession(
+  PostAPI: PostAPIFunction,
+  sessionId: string
+): Promise<boolean> {
+  try {
+    if (!sessionId) {
+      return false;
+    }
+
+    const response = await PostAPI(
+      '/analytics/session/ping',
+      { sessionId },
+      true,
+    );
+
+    if (response.status === 200 || response.status === 201) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📡 [Tracking] Ping enviado com sucesso');
+      }
+      return true;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [Tracking] Erro ao enviar ping:', response.status);
+      }
+      return false;
+    }
+  } catch (error) {
+    // Erros de tracking devem ser silenciosos
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [Tracking] Erro ao enviar ping:', error);
+    }
+    return false;
+  }
+}
+
+/**
+ * Finaliza uma sessão
+ */
+export async function endSession(
+  PostAPI: PostAPIFunction,
+  sessionId: string
+): Promise<boolean> {
+  try {
+    if (!sessionId) {
+      return false;
+    }
+
+    const response = await PostAPI(
+      '/analytics/session/end',
+      {
+        sessionId,
+        endedAt: new Date().toISOString(),
+      },
+      true,
+    );
+
+    if (response.status === 200 || response.status === 201) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔚 [Tracking] Sessão finalizada com sucesso');
+      }
+      return true;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [Tracking] Erro ao finalizar sessão:', response.status);
+      }
+      return false;
+    }
+  } catch (error) {
+    // Erros de tracking devem ser silenciosos
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [Tracking] Erro ao finalizar sessão:', error);
+    }
+    return false;
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, PropsWithChildren } from "react";
+import { createContext, PropsWithChildren, useContext, useEffect, useState } from "react";
 
 interface TrackingContextValue {
   sessionId: string | null;

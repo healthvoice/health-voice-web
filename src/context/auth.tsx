@@ -9,7 +9,7 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { startSession } from "../services/analyticsService";
+import { endSession, startSession } from "../services/analyticsService";
 import { useApiContext } from "./ApiContext";
 import { useTrackingContext } from "./TrackingContext";
 
@@ -62,7 +62,7 @@ function hasAccessToken(): boolean {
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const { GetAPI, PostAPI } = useApiContext();
-  const { setSessionId } = useTrackingContext();
+  const { sessionId, setSessionId } = useTrackingContext();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<User | null>(null);
   const [availableRecording, setAvailableRecording] = useState(0);
@@ -84,6 +84,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
    */
   const forceSignOut = useCallback(async () => {
     try {
+      // Finalizar sessão de tracking antes de limpar sessionId
+      if (sessionId) {
+        try {
+          await endSession(PostAPI, sessionId);
+        } catch (error) {
+          // Erros de tracking devem ser silenciosos
+          if (process.env.NODE_ENV === "development") {
+            console.error("Erro ao finalizar sessão no logout:", error);
+          }
+        }
+      }
+
       setProfile(null);
       setAvailableRecording(0);
       setTotalRecording(0);
@@ -98,7 +110,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     } catch (error) {
       console.error("❌ Erro ao fazer sign out:", error);
     }
-  }, [setSessionId]);
+  }, [setSessionId, sessionId, PostAPI]);
 
   /**
    * Busca o perfil do usuário.
@@ -124,16 +136,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
           setProfile(response.body.profile);
 
           // Iniciar tracking de sessão após sucesso na busca do perfil
-          try {
-            const sessionId = await startSession(PostAPI);
-            if (sessionId) {
-              setSessionId(sessionId);
-            }
-          } catch (error) {
-            if (process.env.NODE_ENV === "development") {
-              console.error("Erro ao iniciar sessão de analytics:", error);
+          // ⚠️ CRÍTICO: Verificar se sessionId já existe antes de criar nova sessão
+          // Isso previne criação de sessões duplicadas
+          if (!sessionId) {
+            try {
+              const newSessionId = await startSession(PostAPI);
+              if (newSessionId) {
+                setSessionId(newSessionId);
+              }
+            } catch (error) {
+              if (process.env.NODE_ENV === "development") {
+                console.error("Erro ao iniciar sessão de analytics:", error);
+              }
             }
           }
+          // Se sessionId já existe, não fazer nada - reutilizar sessão existente
         } else if (response.status === 401) {
           // Token expirado ou inválido — o interceptor já tentou refresh
           // Se chegou aqui com 401, o refresh falhou
@@ -151,7 +168,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         isLoadingProfile.current = false;
       }
     },
-    [GetAPI, PostAPI, forceSignOut, setSessionId],
+    [GetAPI, PostAPI, forceSignOut, setSessionId, sessionId],
   );
 
   /**

@@ -2,17 +2,17 @@
 import { ClientProps, RecordingDetailsProps } from "@/@types/general-client";
 import { TableCell, TableRow } from "@/components/ui/blocks/table";
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@/components/ui/blocks/tooltip";
 import {
-    ContactsIcon,
-    NotesIcon,
-    OtherIcon,
-    StudyIcon,
-    TranscriptionIcon,
+  ContactsIcon,
+  NotesIcon,
+  OtherIcon,
+  StudyIcon,
+  TranscriptionIcon,
 } from "@/components/ui/custom-icons";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useButtonTracking } from "@/hooks/useButtonTracking";
