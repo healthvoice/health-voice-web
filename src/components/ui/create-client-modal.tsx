@@ -3,11 +3,13 @@
 import { ClientProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
 import { handleApiError } from "@/utils/error-handler";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, UserPlus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
@@ -35,16 +37,26 @@ interface CreateClientModalProps {
   /** Chamado após criar o paciente com sucesso */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onClientCreated?: (client: any) => void;
+  /** ID da modal pai (se esta modal foi aberta de dentro de outra modal) */
+  parentModalId?: string;
+  /** Source da modal (se não fornecido, será detectado automaticamente) */
+  source?: string;
 }
 
 export function CreateClientModal({
   open,
   onOpenChange,
   onClientCreated,
+  parentModalId,
+  source: sourceProp,
 }: CreateClientModalProps) {
   const { PostAPI } = useApiContext();
   const { GetClients, setClients } = useGeneralContext();
+  useButtonTracking();
   const [isLoading, setIsLoading] = useState(false);
+
+  const modalSourceRef = useRef<string>("clients-page");
+  const hasModalOpenedRef = useRef<boolean>(false);
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -56,9 +68,74 @@ export function CreateClientModal({
     },
   });
 
+  // Tracking: MODAL_OPENED quando a modal é aberta
+  useEffect(() => {
+    if (open && !hasModalOpenedRef.current) {
+      // Determinar source da modal
+      let source = sourceProp || "clients-page";
+      if (!sourceProp) {
+        const pathname = window.location.pathname;
+        if (pathname.includes("/home") || pathname === "/") {
+          source = "home-page";
+        } else if (pathname.includes("/clients")) {
+          source = "clients-page";
+        } else if (pathname.includes("/reminders")) {
+          source = "reminders-page";
+        } else if (pathname.includes("/studies")) {
+          source = "studies-page";
+        } else if (pathname.includes("/others")) {
+          source = "others-page";
+        }
+      }
+      
+      modalSourceRef.current = source;
+      hasModalOpenedRef.current = true;
+
+      const metadata: Record<string, unknown> = {
+        modalId: "create-client-modal",
+        source,
+      };
+
+      if (parentModalId) {
+        metadata.parentModalId = parentModalId;
+      }
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata,
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_OPENED:", error);
+      });
+    }
+  }, [open, sourceProp, parentModalId, PostAPI]);
+
+  // Tracking: MODAL_CLOSED quando a modal é fechada
+  useEffect(() => {
+    if (!open && hasModalOpenedRef.current) {
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata: {
+            modalId: "create-client-modal",
+            source: modalSourceRef.current,
+            reason: "cancelled",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_CLOSED:", error);
+      });
+      hasModalOpenedRef.current = false;
+    }
+  }, [open, PostAPI]);
+
   useEffect(() => {
     if (!open) {
       form.reset({ name: "", description: "", birthDate: "" });
+      hasModalOpenedRef.current = false;
     }
   }, [open, form]);
 
@@ -111,6 +188,29 @@ export function CreateClientModal({
         birthDate: rawClient.birthDate != null ? String(rawClient.birthDate) : null,
         createdAt: rawClient.createdAt != null ? new Date(rawClient.createdAt as string) : new Date(),
       };
+      
+      // Tracking: CLIENT_CREATED quando cliente é criado com sucesso
+      const clientId = newClient.id;
+      const metadata: Record<string, unknown> = {
+        clientId,
+        modalId: "create-client-modal",
+        source: modalSourceRef.current,
+      };
+
+      if (parentModalId) {
+        metadata.parentModalId = parentModalId;
+      }
+
+      trackAction(
+        {
+          actionType: UserActionType.CLIENT_CREATED,
+          metadata,
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar CLIENT_CREATED:", error);
+      });
+
       setClients((prev) => [newClient, ...prev]);
       await GetClients();
       const finalClient = {
@@ -152,6 +252,7 @@ export function CreateClientModal({
               type="button"
               onClick={() => onOpenChange(false)}
               className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+              data-tracking-id="create-client-close-button"
             >
               <X size={20} className="text-gray-400" />
             </button>
@@ -245,6 +346,7 @@ export function CreateClientModal({
               type="button"
               onClick={() => onOpenChange(false)}
               className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+              data-tracking-id="create-client-cancel-button"
             >
               Cancelar
             </button>
@@ -254,6 +356,7 @@ export function CreateClientModal({
               onClick={() => handleSubmit(form)}
               disabled={isLoading}
               className="flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg disabled:opacity-70"
+              data-tracking-id="create-client-submit-button"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
