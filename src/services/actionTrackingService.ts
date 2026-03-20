@@ -1,21 +1,21 @@
-import { getCurrentPlatform } from '@/utils/platform';
+import { getCurrentPlatform } from "@/utils/platform";
 
 export enum UserActionType {
-  RECORDING_STARTED = 'RECORDING_STARTED',
-  RECORDING_CANCELLED = 'RECORDING_CANCELLED',
-  RECORDING_COMPLETED = 'RECORDING_COMPLETED',
-  TRANSCRIPTION_REQUESTED = 'TRANSCRIPTION_REQUESTED',
-  SUMMARY_EDITED = 'SUMMARY_EDITED',
-  PDF_EXPORTED = 'PDF_EXPORTED',
-  SCREEN_VIEWED = 'SCREEN_VIEWED',
-  TAB_CLICKED = 'TAB_CLICKED',
-  CONVERSATION_STARTED = 'CONVERSATION_STARTED',
+  RECORDING_STARTED = "RECORDING_STARTED",
+  RECORDING_CANCELLED = "RECORDING_CANCELLED",
+  RECORDING_COMPLETED = "RECORDING_COMPLETED",
+  TRANSCRIPTION_REQUESTED = "TRANSCRIPTION_REQUESTED",
+  SUMMARY_EDITED = "SUMMARY_EDITED",
+  PDF_EXPORTED = "PDF_EXPORTED",
+  SCREEN_VIEWED = "SCREEN_VIEWED",
+  TAB_CLICKED = "TAB_CLICKED",
+  CONVERSATION_STARTED = "CONVERSATION_STARTED",
   // Modal actions
-  MODAL_OPENED = 'MODAL_OPENED',
-  MODAL_CLOSED = 'MODAL_CLOSED',
+  MODAL_OPENED = "MODAL_OPENED",
+  MODAL_CLOSED = "MODAL_CLOSED",
   // Client actions
-  CLIENT_SELECTED = 'CLIENT_SELECTED',
-  CLIENT_CREATED = 'CLIENT_CREATED',
+  CLIENT_SELECTED = "CLIENT_SELECTED",
+  CLIENT_CREATED = "CLIENT_CREATED",
 }
 
 interface TrackActionParams {
@@ -39,20 +39,20 @@ interface PostAPIFunction {
  */
 export async function trackAction(
   params: TrackActionParams,
-  PostAPI: PostAPIFunction
+  PostAPI: PostAPIFunction,
 ): Promise<void> {
   try {
     const platform = getCurrentPlatform();
 
     const result = await PostAPI(
-      '/analytics/actions',
+      "/analytics/actions",
       {
         actionType: params.actionType,
         platform,
         recordingId: params.recordingId || undefined,
         metadata: params.metadata || undefined,
       },
-      true
+      true,
     );
 
     if (result.status < 200 || result.status >= 300) {
@@ -60,7 +60,7 @@ export async function trackAction(
     }
   } catch (error) {
     // Erro silencioso - não deve quebrar funcionalidades principais
-    console.warn('Erro ao registrar ação de tracking:', error);
+    console.warn("Erro ao registrar ação de tracking:", error);
     throw error;
   }
 }

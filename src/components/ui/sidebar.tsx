@@ -4,13 +4,7 @@ import { useGeneralContext } from "@/context/GeneralContext";
 import { useSession } from "@/context/auth";
 import { useSidebar } from "@/store";
 import { cn } from "@/utils/cn";
-import {
-  ChevronDown,
-  ChevronRight,
-  Crown,
-  Rocket,
-  Zap
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Crown, Rocket, Zap } from "lucide-react";
 import moment from "moment";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -80,7 +74,7 @@ function NavItem({
 }) {
   // Criar ID de tracking baseado no href
   const trackingId = `sidebar-nav-${href === "/" ? "home" : href.replace("/", "").replace(/\//g, "-")}`;
-  
+
   return (
     <button
       type="button"

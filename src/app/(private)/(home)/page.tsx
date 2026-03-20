@@ -6,7 +6,11 @@ import { CreateClientModal } from "@/components/ui/create-client-modal";
 import { useApiContext } from "@/context/ApiContext";
 import { useSession } from "@/context/auth";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { TOUR_ENABLED, getTourCompleted, useRecordingTour } from "@/context/RecordingTourContext";
+import {
+  TOUR_ENABLED,
+  getTourCompleted,
+  useRecordingTour,
+} from "@/context/RecordingTourContext";
 import { useTrackingContext } from "@/context/TrackingContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { usePageView } from "@/hooks/usePageView";
@@ -205,7 +209,10 @@ export default function HomePage() {
         {/* 1/4 da tela: pacientes recentes + lembretes (altura pelo conteúdo, sem scroll interno) */}
         <div className="flex flex-col gap-4 lg:col-span-1">
           <RecentClients className="min-w-0 shrink-0" />
-          <TodayRemindersCompact className="min-w-0 shrink-0" onNewReminderClick={() => setNewReminderModalOpen(true)} />
+          <TodayRemindersCompact
+            className="min-w-0 shrink-0"
+            onNewReminderClick={() => setNewReminderModalOpen(true)}
+          />
         </div>
       </div>
 
