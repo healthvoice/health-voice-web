@@ -1,6 +1,10 @@
 import { ClientProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
+import {
+  setTourFinalStepPending,
+  useRecordingTour,
+} from "@/context/RecordingTourContext";
 import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
 import { handleApiError } from "@/utils/error-handler";
@@ -34,12 +38,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/blocks/dropdown-menu";
-import {
-  useRecordingTour,
-  setTourFinalStepPending,
-} from "@/context/RecordingTourContext";
 import { useMediaRecorder } from "./use-media-recorder";
-import { useRecordingFlow } from "./use-recording-flow";
+import { useRecordingFlow, type RecordingStep } from "./use-recording-flow";
 import { useRecordingUpload } from "./use-recording-upload";
 
 const getMediaTypeFromMetadata = (metadata: {
@@ -120,6 +120,9 @@ export function AudioRecorder({
     null,
   );
   const resetRecorderRef = useRef(() => {});
+  const modalSourceRef = useRef<string | null>(null);
+  const previousStepRef = useRef<RecordingStep | "idle">("idle");
+  const recordingCompletedRef = useRef(false);
 
   // Inline patient creation states
   const [patientSearch, setPatientSearch] = useState("");
@@ -221,14 +224,18 @@ export function AudioRecorder({
     resetRecorderRef.current = recorder.resetRecording;
   }, [recorder.resetRecording]);
 
-  const resetFlow = useCallback(() => {
+  const resetFlow = useCallback((skipCancelledTracking = false) => {
     const hasPendingRecording =
       recorder.mediaBlob &&
       (currentStep === "preview" ||
         currentStep === "save-dialog" ||
         currentStep === "recording");
 
-    if (hasPendingRecording) {
+    // Só dispara RECORDING_CANCELLED se:
+    // 1. Há uma gravação pendente
+    // 2. Não foi marcado como completado
+    // 3. Não foi solicitado para pular o tracking de cancelamento
+    if (hasPendingRecording && !recordingCompletedRef.current && !skipCancelledTracking) {
       trackAction(
         {
           actionType: UserActionType.RECORDING_CANCELLED,
@@ -247,6 +254,32 @@ export function AudioRecorder({
       });
     }
 
+    // Reset do flag de completado
+    recordingCompletedRef.current = false;
+
+    // Tracking: MODAL_CLOSED quando a modal é fechada via resetFlow
+    if (currentStep !== "idle") {
+      const modalId = metadata.recordingType === "CLIENT" 
+        ? "new-consultation-modal"
+        : simplifiedDialogMode === "lembrete"
+        ? "new-reminder-modal"
+        : "new-personal-recording-modal";
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata: {
+            modalId,
+            source: modalSourceRef.current || "unknown",
+            reason: hasPendingRecording ? "cancelled" : "dismissed",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_CLOSED:", error);
+      });
+    }
+
     // Reset inline patient states
     setPatientSearch("");
     setIsCreatingPatient(false);
@@ -254,6 +287,7 @@ export function AudioRecorder({
     setNewPatientDescription("");
     setNewPatientBirthDate("");
     setSimplifiedDialogMode(null);
+    modalSourceRef.current = null;
 
     originalResetFlow();
   }, [
@@ -261,6 +295,7 @@ export function AudioRecorder({
     recorder.duration,
     currentStep,
     metadata,
+    simplifiedDialogMode,
     PostAPI,
     originalResetFlow,
   ]);
@@ -308,6 +343,35 @@ export function AudioRecorder({
 
       toast.success("Gravação salva com sucesso!");
 
+      // Tracking: RECORDING_COMPLETED quando a gravação é salva com sucesso
+      const modalId = metadata.recordingType === "CLIENT" 
+        ? "new-consultation-modal"
+        : simplifiedDialogMode === "lembrete"
+        ? "new-reminder-modal"
+        : "new-personal-recording-modal";
+
+      trackAction(
+        {
+          actionType: UserActionType.RECORDING_COMPLETED,
+          metadata: {
+            modalId,
+            source: modalSourceRef.current || "unknown",
+            recordingType: metadata.recordingType,
+            consultationType: metadata.consultationType,
+            personalRecordingType: metadata.personalRecordingType,
+            clientId: metadata.selectedClientId || undefined,
+            duration,
+            seconds: duration,
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar RECORDING_COMPLETED:", error);
+      });
+
+      // Marcar como completado para evitar RECORDING_CANCELLED no resetFlow
+      recordingCompletedRef.current = true;
+
       GetRecordings();
       if (metadata.personalRecordingType === "REMINDER" && initialReminderId) {
         GetReminders();
@@ -317,7 +381,7 @@ export function AudioRecorder({
         setTourFinalStepPending();
         router.push("/recordings");
       }
-      resetFlow();
+      resetFlow(true); // Passar true para pular o tracking de cancelamento
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const errorMessage =
@@ -507,6 +571,31 @@ export function AudioRecorder({
   const handleStartRecording = async () => {
     if (!validateForm()) return;
     setSimplifiedDialogMode(null);
+    
+    // Tracking: RECORDING_STARTED com metadata da modal
+    const modalId = metadata.recordingType === "CLIENT" 
+      ? "new-consultation-modal"
+      : simplifiedDialogMode === "lembrete"
+      ? "new-reminder-modal"
+      : "new-personal-recording-modal";
+
+    trackAction(
+      {
+        actionType: UserActionType.RECORDING_STARTED,
+        metadata: {
+          modalId,
+          source: modalSourceRef.current || "unknown",
+          recordingType: metadata.recordingType,
+          consultationType: metadata.consultationType,
+          personalRecordingType: metadata.personalRecordingType,
+          clientId: metadata.selectedClientId || undefined,
+        },
+      },
+      PostAPI,
+    ).catch((error) => {
+      console.warn("Erro ao registrar RECORDING_STARTED:", error);
+    });
+
     if (currentMediaType === "video") {
       setCurrentStep("instructions");
     } else {
@@ -539,6 +628,30 @@ export function AudioRecorder({
   };
 
   const handleStartVideoRecording = async () => {
+    // Tracking: RECORDING_STARTED para vídeo
+    const modalId = metadata.recordingType === "CLIENT" 
+      ? "new-consultation-modal"
+      : simplifiedDialogMode === "lembrete"
+      ? "new-reminder-modal"
+      : "new-personal-recording-modal";
+
+    trackAction(
+      {
+        actionType: UserActionType.RECORDING_STARTED,
+        metadata: {
+          modalId,
+          source: modalSourceRef.current || "unknown",
+          recordingType: metadata.recordingType,
+          consultationType: metadata.consultationType,
+          personalRecordingType: metadata.personalRecordingType,
+          clientId: metadata.selectedClientId || undefined,
+        },
+      },
+      PostAPI,
+    ).catch((error) => {
+      console.warn("Erro ao registrar RECORDING_STARTED:", error);
+    });
+
     try {
       setCurrentStep("recording");
       await recorder.startRecording();
@@ -575,6 +688,33 @@ export function AudioRecorder({
   };
 
   const handleRetryRecording = () => {
+    // Tracking: RECORDING_CANCELLED quando o usuário escolhe regravar
+    const modalId = metadata.recordingType === "CLIENT" 
+      ? "new-consultation-modal"
+      : simplifiedDialogMode === "lembrete"
+      ? "new-reminder-modal"
+      : "new-personal-recording-modal";
+
+    trackAction(
+      {
+        actionType: UserActionType.RECORDING_CANCELLED,
+        metadata: {
+          modalId,
+          source: modalSourceRef.current || "unknown",
+          recordingType: metadata.recordingType,
+          consultationType: metadata.consultationType,
+          personalRecordingType: metadata.personalRecordingType,
+          duration: recorder.duration,
+          hadBlob: !!recorder.mediaBlob,
+          step: currentStep,
+          reason: "retry",
+        },
+      },
+      PostAPI,
+    ).catch((error) => {
+      console.warn("Erro ao registrar RECORDING_CANCELLED (retry):", error);
+    });
+
     recorder.resetRecording();
     setCurrentStep("save-dialog");
   };
@@ -620,6 +760,25 @@ export function AudioRecorder({
         setNewPatientDescription("");
         setNewPatientBirthDate("");
         setIsCreatingPatient(false);
+
+        // Tracking: CLIENT_CREATED
+        const modalId = metadata.recordingType === "CLIENT" 
+          ? "new-consultation-modal"
+          : "new-personal-recording-modal";
+        
+        trackAction(
+          {
+            actionType: UserActionType.CLIENT_CREATED,
+            metadata: {
+              modalId,
+              clientId: newClient.id,
+              source: modalSourceRef.current || "unknown",
+            },
+          },
+          PostAPI,
+        ).catch((error) => {
+          console.warn("Erro ao registrar CLIENT_CREATED:", error);
+        });
 
         if (isTourActive) {
           setTimeout(() => {
@@ -716,6 +875,76 @@ export function AudioRecorder({
   useEffect(() => {
     resetFlow();
   }, []);
+
+  // Tracking: MODAL_OPENED quando a modal é aberta
+  useEffect(() => {
+    if (currentStep === "save-dialog" && previousStepRef.current !== "save-dialog") {
+      // Determinar source da modal
+      const pathname = window.location.pathname;
+      let source = "unknown";
+      if (pathname.includes("/home") || pathname === "/") {
+        source = "home-page";
+      } else if (pathname.includes("/clients")) {
+        source = "clients-page";
+      } else if (pathname.includes("/reminders")) {
+        source = "reminders-page";
+      } else if (pathname.includes("/studies")) {
+        source = "studies-page";
+      } else if (pathname.includes("/others")) {
+        source = "others-page";
+      }
+      
+      modalSourceRef.current = source;
+
+      const modalId = metadata.recordingType === "CLIENT" 
+        ? "new-consultation-modal"
+        : simplifiedDialogMode === "lembrete"
+        ? "new-reminder-modal"
+        : "new-personal-recording-modal";
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata: {
+            modalId,
+            source,
+            recordingType: metadata.recordingType,
+            consultationType: metadata.consultationType,
+            personalRecordingType: metadata.personalRecordingType,
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_OPENED:", error);
+      });
+    }
+    previousStepRef.current = currentStep;
+  }, [currentStep, metadata.recordingType, metadata.consultationType, metadata.personalRecordingType, simplifiedDialogMode, PostAPI]);
+
+  // Tracking: MODAL_CLOSED quando a modal é fechada
+  useEffect(() => {
+    if (currentStep === "idle" && previousStepRef.current !== "idle") {
+      const modalId = metadata.recordingType === "CLIENT" 
+        ? "new-consultation-modal"
+        : simplifiedDialogMode === "lembrete"
+        ? "new-reminder-modal"
+        : "new-personal-recording-modal";
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata: {
+            modalId,
+            source: modalSourceRef.current || "unknown",
+            reason: "dismissed",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_CLOSED:", error);
+      });
+    }
+  }, [currentStep, metadata.recordingType, simplifiedDialogMode, PostAPI]);
 
   useEffect(() => {
     registerValidateAdvanceFromPatientStep(() => !!metadata.selectedClientId);
@@ -958,7 +1187,8 @@ export function AudioRecorder({
                   </div>
                   {stepProgress.canClose && (
                     <button
-                      onClick={resetFlow}
+                      data-tracking-id="new-consultation-close-button"
+                      onClick={() => resetFlow()}
                       className="self-start rounded-lg p-1.5 transition-colors hover:bg-gray-100"
                     >
                       <X size={20} className="text-gray-400" />
@@ -1011,6 +1241,7 @@ export function AudioRecorder({
                           <div className="pt-2">
                             <button
                               type="button"
+                              data-tracking-id="new-reminder-start-recording-button"
                               onClick={handleStartRecording}
                               className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99]"
                             >
@@ -1100,6 +1331,7 @@ export function AudioRecorder({
                           <div className="pt-2">
                             <button
                               type="button"
+                              data-tracking-id="new-personal-recording-start-recording-button"
                               onClick={handleStartRecording}
                               disabled={!metadata.personalRecordingType}
                               className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
@@ -1362,6 +1594,7 @@ export function AudioRecorder({
                                   {!isCreatingPatient && (
                                     <button
                                       data-tour="cadastrar-novo-paciente-btn"
+                                      data-tracking-id="new-consultation-create-client-button"
                                       onClick={() => setIsCreatingPatient(true)}
                                       className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
                                     >
@@ -1399,11 +1632,31 @@ export function AudioRecorder({
                                         filteredClients.map((client) => (
                                           <button
                                             key={client.id}
-                                            onClick={() =>
+                                            data-tracking-id="new-consultation-client-select"
+                                            onClick={() => {
                                               updateMetadata({
                                                 selectedClientId: client.id,
-                                              })
-                                            }
+                                              });
+                                              
+                                              // Tracking: CLIENT_SELECTED
+                                              const modalId = metadata.recordingType === "CLIENT" 
+                                                ? "new-consultation-modal"
+                                                : "new-personal-recording-modal";
+                                              
+                                              trackAction(
+                                                {
+                                                  actionType: UserActionType.CLIENT_SELECTED,
+                                                  metadata: {
+                                                    modalId,
+                                                    clientId: client.id,
+                                                    source: modalSourceRef.current || "unknown",
+                                                  },
+                                                },
+                                                PostAPI,
+                                              ).catch((error) => {
+                                                console.warn("Erro ao registrar CLIENT_SELECTED:", error);
+                                              });
+                                            }}
                                             className={cn(
                                               "flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors",
                                               metadata.selectedClientId ===
@@ -1438,15 +1691,16 @@ export function AudioRecorder({
                                       <span className="text-sm font-semibold text-gray-700">
                                         Novo Paciente
                                       </span>
-                                      <button
-                                        data-tour="create-patient-back-btn"
-                                        onClick={() =>
-                                          setIsCreatingPatient(false)
-                                        }
-                                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                                      >
-                                        ← Voltar à lista
-                                      </button>
+                                    <button
+                                      data-tour="create-patient-back-btn"
+                                      data-tracking-id="new-consultation-create-client-back-button"
+                                      onClick={() =>
+                                        setIsCreatingPatient(false)
+                                      }
+                                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                    >
+                                      ← Voltar à lista
+                                    </button>
                                     </div>
 
                                     <input
@@ -1488,6 +1742,7 @@ export function AudioRecorder({
 
                                     <button
                                       data-tour="create-client-submit-btn"
+                                      data-tracking-id="new-consultation-create-client-submit-button"
                                       onClick={handleInlineCreatePatient}
                                       disabled={
                                         isCreatingPatientLoading ||
@@ -1517,6 +1772,7 @@ export function AudioRecorder({
                           <div className="mt-6">
                             <button
                               data-tour="start-recording-btn"
+                              data-tracking-id="new-consultation-start-recording-button"
                               onClick={handleStartRecording}
                               className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99]"
                             >
@@ -1603,6 +1859,7 @@ export function AudioRecorder({
                       <div className="mt-6 flex gap-3">
                         <button
                           data-tour="instructions-back-btn"
+                          data-tracking-id="new-consultation-instructions-back-button"
                           onClick={() => setCurrentStep("save-dialog")}
                           className="flex-1 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
                         >
@@ -1610,6 +1867,7 @@ export function AudioRecorder({
                         </button>
                         <button
                           data-tour="start-video-recording-btn"
+                          data-tracking-id="new-consultation-start-video-recording-button"
                           onClick={handleStartVideoRecording}
                           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
                         >
