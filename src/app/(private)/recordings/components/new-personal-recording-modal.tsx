@@ -5,8 +5,10 @@ import {
   DialogContent,
 } from "@/components/ui/blocks/dialog";
 import { useMediaRecorder } from "@/components/audio-recorder/use-media-recorder";
+import { useApiContext } from "@/context/ApiContext";
 import { useRecordingActions } from "@/services/recordingService";
 import type { RecordingType } from "@/services/recordingService";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
 import {
   AlertCircle,
@@ -84,10 +86,14 @@ export function NewPersonalRecordingModal({
   variant: variantProp,
   onSuccess,
 }: NewPersonalRecordingModalProps) {
+  const { PostAPI } = useApiContext();
   const [name, setName] = useState("");
   const [step, setStep] = useState<Step>(variantProp ? "form" : "choice");
   const [selectedVariant, setSelectedVariant] = useState<PersonalRecordingVariant | null>(null);
   const audioPreviewRef = useRef<HTMLAudioElement>(null);
+  const modalSourceRef = useRef<string>("home-page");
+  const hasCompletedRecordingRef = useRef<boolean>(false);
+  const hasModalOpenedRef = useRef<boolean>(false);
 
   const { uploadAndCreateRecording } = useRecordingActions();
   const effectiveVariant = variantProp ?? selectedVariant;
@@ -118,6 +124,25 @@ export function NewPersonalRecordingModal({
         name: name.trim() || undefined,
       });
       if (result.success) {
+        // Tracking: RECORDING_COMPLETED quando gravação é salva com sucesso
+        hasCompletedRecordingRef.current = true;
+        trackAction(
+          {
+            actionType: UserActionType.RECORDING_COMPLETED,
+            metadata: {
+              modalId: "new-personal-recording-modal",
+              source: modalSourceRef.current,
+              recordingType: "PERSONAL",
+              personalRecordingType: effectiveVariant,
+              duration: duration,
+              seconds: duration,
+            },
+          },
+          PostAPI,
+        ).catch((error) => {
+          console.warn("Erro ao registrar RECORDING_COMPLETED:", error);
+        });
+
         toast.success(VARIANT_CONFIG[effectiveVariant].successMessage);
         onSuccess?.();
         onOpenChange(false);
@@ -129,7 +154,7 @@ export function NewPersonalRecordingModal({
         setStep("preview");
       }
     },
-    [effectiveVariant, hasChoiceStep, name, uploadAndCreateRecording, onSuccess, onOpenChange],
+    [effectiveVariant, hasChoiceStep, name, uploadAndCreateRecording, onSuccess, onOpenChange, PostAPI],
   );
 
   const recorder = useMediaRecorder({
@@ -154,19 +179,111 @@ export function NewPersonalRecordingModal({
     }
   }, [step, recorder.mediaUrl]);
 
+  // Tracking: MODAL_OPENED quando a modal é aberta
+  useEffect(() => {
+    const initialStep = variantProp ? "form" : "choice";
+    if (open && step === initialStep && !hasModalOpenedRef.current) {
+      // Determinar source da modal baseado no pathname
+      const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+      let source = "home-page";
+      if (pathname.includes("/home") || pathname === "/") {
+        source = "home-page";
+      } else if (pathname.includes("/clients")) {
+        source = "clients-page";
+      } else if (pathname.includes("/reminders")) {
+        source = "reminders-page";
+      } else if (pathname.includes("/studies")) {
+        source = "studies-page";
+      } else if (pathname.includes("/others")) {
+        source = "others-page";
+      } else if (pathname.includes("/recordings")) {
+        source = "recordings-page";
+      }
+      
+      modalSourceRef.current = source;
+      hasModalOpenedRef.current = true;
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata: {
+            modalId: "new-personal-recording-modal",
+            source,
+            recordingType: "PERSONAL",
+            personalRecordingType: effectiveVariant || undefined,
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_OPENED:", error);
+      });
+    }
+  }, [open, step, variantProp, effectiveVariant, PostAPI]);
+
+  // Tracking: MODAL_CLOSED quando a modal é fechada
+  useEffect(() => {
+    if (!open && hasModalOpenedRef.current) {
+      // Determinar reason do fechamento
+      let reason: "cancelled" | "completed" | "dismissed" = "cancelled";
+      if (hasCompletedRecordingRef.current) {
+        reason = "completed";
+      } else if (step === "recording" || step === "preview" || recorder.mediaBlob) {
+        reason = "dismissed";
+      }
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata: {
+            modalId: "new-personal-recording-modal",
+            source: modalSourceRef.current,
+            reason,
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_CLOSED:", error);
+      });
+    }
+    // Reset ref quando modal fecha
+    if (!open) {
+      hasModalOpenedRef.current = false;
+    }
+  }, [open, step, recorder.mediaBlob, PostAPI]);
+
   useEffect(() => {
     if (!open) {
       setStep(variantProp ? "form" : "choice");
       setName("");
       setSelectedVariant(null);
+      hasCompletedRecordingRef.current = false;
+      hasModalOpenedRef.current = false;
       if (recorder.mediaUrl) recorder.resetRecording();
     }
-  }, [open, variantProp]);
+  }, [open, variantProp, recorder]);
 
   const handleStartRecording = async () => {
     try {
       await recorder.startRecording();
       setStep("recording");
+      
+      // Tracking: RECORDING_STARTED quando inicia gravação
+      if (effectiveVariant) {
+        trackAction(
+          {
+            actionType: UserActionType.RECORDING_STARTED,
+            metadata: {
+              modalId: "new-personal-recording-modal",
+              source: modalSourceRef.current,
+              recordingType: "PERSONAL",
+              personalRecordingType: effectiveVariant,
+            },
+          },
+          PostAPI,
+        ).catch((error) => {
+          console.warn("Erro ao registrar RECORDING_STARTED:", error);
+        });
+      }
     } catch {
       toast.error("Não foi possível acessar o microfone.");
     }
@@ -174,11 +291,57 @@ export function NewPersonalRecordingModal({
 
   const handleStopRecording = () => recorder.stopRecording();
   const handleRetryRecording = () => {
+    // Tracking: RECORDING_CANCELLED quando clica em "Regravar"
+    if (effectiveVariant && recorder.duration > 0) {
+      trackAction(
+        {
+          actionType: UserActionType.RECORDING_CANCELLED,
+          metadata: {
+            recordingType: "PERSONAL",
+            personalRecordingType: effectiveVariant,
+            duration: recorder.duration,
+            hadBlob: !!recorder.mediaBlob,
+            step: "preview",
+            reason: "retry",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar RECORDING_CANCELLED:", error);
+      });
+    }
+    
     recorder.resetRecording();
     setStep("form");
   };
 
   const handleClose = () => {
+    // Tracking: RECORDING_CANCELLED quando fecha modal durante gravação/preview
+    // Só dispara se não foi completado e está em gravação ou preview
+    if (
+      !hasCompletedRecordingRef.current &&
+      effectiveVariant &&
+      (step === "recording" || step === "preview") &&
+      recorder.duration > 0
+    ) {
+      trackAction(
+        {
+          actionType: UserActionType.RECORDING_CANCELLED,
+          metadata: {
+            recordingType: "PERSONAL",
+            personalRecordingType: effectiveVariant,
+            duration: recorder.duration,
+            hadBlob: !!recorder.mediaBlob,
+            step: step,
+            reason: step === "recording" ? "cancelled" : "dismissed",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar RECORDING_CANCELLED:", error);
+      });
+    }
+
     if (step === "recording" && recorder.isRecording) {
       recorder.stopRecording();
       recorder.resetRecording();
@@ -186,6 +349,7 @@ export function NewPersonalRecordingModal({
     setStep(hasChoiceStep ? "choice" : "form");
     setName("");
     setSelectedVariant(null);
+    hasCompletedRecordingRef.current = false;
     onOpenChange(false);
   };
 
