@@ -1,10 +1,12 @@
 "use client";
 
-import { Dialog, DialogContent } from "@/components/ui/blocks/dialog";
 import { useMediaRecorder } from "@/components/audio-recorder/use-media-recorder";
+import { Dialog, DialogContent } from "@/components/ui/blocks/dialog";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useRecordingActions } from "@/services/recordingService";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
 import { handleApiError } from "@/utils/error-handler";
 import { getCurrentPlatform } from "@/utils/platform";
@@ -75,6 +77,11 @@ export function NewReminderModal({
   const { PostAPI, GetAPI } = useApiContext();
   const { GetReminders } = useGeneralContext();
   const { uploadAndCreateRecording } = useRecordingActions();
+  useButtonTracking();
+
+  const modalSourceRef = useRef<string>("reminders-page");
+  const hasCompletedRecordingRef = useRef<boolean>(false);
+  const hasModalOpenedRef = useRef<boolean>(false);
 
   const [description, setDescription] = useState("");
   const [step, setStep] = useState<Step>("form");
@@ -129,6 +136,25 @@ export function NewReminderModal({
         reminderId,
       });
       if (result.success) {
+        // Tracking: RECORDING_COMPLETED quando gravação é salva com sucesso
+        hasCompletedRecordingRef.current = true;
+        trackAction(
+          {
+            actionType: UserActionType.RECORDING_COMPLETED,
+            metadata: {
+              modalId: "new-reminder-modal",
+              source: modalSourceRef.current,
+              recordingType: "PERSONAL",
+              personalRecordingType: "REMINDER",
+              duration: duration,
+              seconds: duration,
+            },
+          },
+          PostAPI,
+        ).catch((error) => {
+          console.warn("Erro ao registrar RECORDING_COMPLETED:", error);
+        });
+
         toast.success("Lembrete criado e gravação salva!");
         GetReminders();
         onSuccess?.();
@@ -145,6 +171,7 @@ export function NewReminderModal({
       GetReminders,
       onSuccess,
       onOpenChange,
+      PostAPI,
     ],
   );
 
@@ -176,10 +203,73 @@ export function NewReminderModal({
     }
   }, [step, recorder.mediaUrl]);
 
+  // Tracking: MODAL_OPENED quando a modal é aberta
+  useEffect(() => {
+    if (open && step === "form" && !hasModalOpenedRef.current) {
+      // Determinar source da modal
+      const pathname = window.location.pathname;
+      let source = "reminders-page";
+      if (pathname.includes("/home") || pathname === "/") {
+        source = "home-page";
+      } else if (pathname.includes("/clients")) {
+        source = "clients-page";
+      } else if (pathname.includes("/reminders")) {
+        source = "reminders-page";
+      } else if (pathname.includes("/studies")) {
+        source = "studies-page";
+      } else if (pathname.includes("/others")) {
+        source = "others-page";
+      }
+      
+      modalSourceRef.current = source;
+      hasModalOpenedRef.current = true;
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata: {
+            modalId: "new-reminder-modal",
+            source,
+            recordingType: "PERSONAL",
+            personalRecordingType: "REMINDER",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_OPENED:", error);
+      });
+    }
+  }, [open, step, PostAPI]);
+
+  // Tracking: MODAL_CLOSED quando a modal é fechada (apenas se não completou gravação)
+  useEffect(() => {
+    if (!open && hasModalOpenedRef.current && !hasCompletedRecordingRef.current) {
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata: {
+            modalId: "new-reminder-modal",
+            source: modalSourceRef.current,
+            reason: "cancelled",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar MODAL_CLOSED:", error);
+      });
+    }
+    // Reset ref quando modal fecha
+    if (!open) {
+      hasModalOpenedRef.current = false;
+    }
+  }, [open, PostAPI]);
+
   useEffect(() => {
     if (!open) {
       setStep("form");
       setDescription("");
+      hasCompletedRecordingRef.current = false;
+      hasModalOpenedRef.current = false;
       if (recorder.mediaUrl) recorder.resetRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when open closes
@@ -187,6 +277,22 @@ export function NewReminderModal({
 
   const handleStartRecording = async () => {
     try {
+      // Tracking: RECORDING_STARTED quando inicia gravação
+      trackAction(
+        {
+          actionType: UserActionType.RECORDING_STARTED,
+          metadata: {
+            modalId: "new-reminder-modal",
+            source: modalSourceRef.current,
+            recordingType: "PERSONAL",
+            personalRecordingType: "REMINDER",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar RECORDING_STARTED:", error);
+      });
+
       await recorder.startRecording();
       setStep("recording");
     } catch {
@@ -199,11 +305,49 @@ export function NewReminderModal({
   };
 
   const handleRetryRecording = () => {
+    // Tracking: RECORDING_CANCELLED quando clica em "Regravar"
+    trackAction(
+      {
+        actionType: UserActionType.RECORDING_CANCELLED,
+        metadata: {
+          recordingType: "PERSONAL",
+          personalRecordingType: "REMINDER",
+          duration: recorder.duration,
+          hadBlob: !!recorder.mediaBlob,
+          step: "preview",
+          reason: "retry",
+        },
+      },
+      PostAPI,
+    ).catch((error) => {
+      console.warn("Erro ao registrar RECORDING_CANCELLED:", error);
+    });
+
     recorder.resetRecording();
     setStep("form");
   };
 
   const handleClose = () => {
+    // Tracking: RECORDING_CANCELLED quando fecha modal durante gravação/preview
+    if ((step === "recording" || step === "preview") && !hasCompletedRecordingRef.current) {
+      trackAction(
+        {
+          actionType: UserActionType.RECORDING_CANCELLED,
+          metadata: {
+            recordingType: "PERSONAL",
+            personalRecordingType: "REMINDER",
+            duration: recorder.duration,
+            hadBlob: !!recorder.mediaBlob,
+            step: step === "recording" ? "recording" : "preview",
+            reason: "dismissed",
+          },
+        },
+        PostAPI,
+      ).catch((error) => {
+        console.warn("Erro ao registrar RECORDING_CANCELLED:", error);
+      });
+    }
+
     if (step === "recording" && recorder.isRecording) {
       recorder.stopRecording();
       recorder.resetRecording();
@@ -241,6 +385,7 @@ export function NewReminderModal({
                 type="button"
                 onClick={handleClose}
                 className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+                data-tracking-id="new-reminder-close-button"
               >
                 <X size={20} className="text-gray-400" />
               </button>
@@ -290,6 +435,7 @@ export function NewReminderModal({
                     type="button"
                     onClick={handleStartRecording}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.99]"
+                    data-tracking-id="new-reminder-start-recording-button"
                   >
                     <Mic size={20} />
                     Iniciar Gravação
@@ -319,6 +465,7 @@ export function NewReminderModal({
                     type="button"
                     onClick={handleStopRecording}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3.5 font-semibold text-white transition-colors hover:bg-red-700"
+                    data-tracking-id="new-reminder-stop-recording-button"
                   >
                     <Pause size={20} />
                     Parar Gravação
@@ -371,6 +518,7 @@ export function NewReminderModal({
                     type="button"
                     onClick={handleRetryRecording}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+                    data-tracking-id="new-reminder-retry-recording-button"
                   >
                     <RefreshCw size={16} />
                     Regravar
@@ -386,6 +534,7 @@ export function NewReminderModal({
                     }
                     disabled={!recorder.mediaBlob}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:pointer-events-none disabled:opacity-50"
+                    data-tracking-id="new-reminder-confirm-and-send-button"
                   >
                     <Send size={16} />
                     Confirmar e Enviar
