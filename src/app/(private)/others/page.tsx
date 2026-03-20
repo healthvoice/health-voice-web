@@ -1,6 +1,5 @@
 "use client";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { usePageView } from "@/hooks/usePageView";
 import { debounce } from "lodash";
 import { Plus, Search } from "lucide-react";
@@ -21,9 +20,6 @@ export default function Others() {
 
   // Tracking de visualização de tela
   usePageView();
-  // Tracking de botões
-  useButtonTracking();
-
   const handleStopTyping = (value: string) => {
     setRecordingsFilters((prev) => ({
       ...prev,

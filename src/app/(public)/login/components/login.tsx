@@ -20,8 +20,6 @@ import { useSession } from "@/context/auth";
 import { useApiContext } from "@/context/ApiContext";
 import { useTrackingContext } from "@/context/TrackingContext";
 import { Platform } from "@/services/analyticsService";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
-
 // Props do componente
 type SignInProps = {
   onClick: () => void; // Para "Esqueceu a senha?"
@@ -74,9 +72,6 @@ const SignIn = ({ onClick }: SignInProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const loginStartTimeRef = useRef<number | null>(null);
-  
-  // Tracking de botões
-  useButtonTracking();
 
   // Configuração do react-hook-form
   const form = useForm<FormData>({

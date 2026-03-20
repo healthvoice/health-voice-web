@@ -2,7 +2,6 @@
 
 import { ReminderProps } from "@/@types/general-client";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { motion } from "framer-motion";
 import { AlarmClock, Calendar, ChevronRight, FileAudio, Pencil } from "lucide-react";
 import moment from "moment";
@@ -19,9 +18,6 @@ export function GeneralReminderCardItem({ reminder, index }: Props) {
   const { setSelectedReminder } = useGeneralContext();
   const router = useRouter();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
-  // Tracking de botões
-  useButtonTracking();
 
   const handleNavigation = (e?: React.MouseEvent) => {
     e?.stopPropagation();

@@ -2,16 +2,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePageView } from "@/hooks/usePageView";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import RegisterAnimation from "./components/RegisterAnimation";
 import RegisterForm from "./components/register-form";
 
 export default function Register() {
     // Tracking de visualização de tela
     usePageView();
-    // Tracking de botões
-    useButtonTracking();
-    
+
     return (
         <div className="flex min-h-screen w-full bg-white">
             {/* Esquerda - Branding / Marketing */}

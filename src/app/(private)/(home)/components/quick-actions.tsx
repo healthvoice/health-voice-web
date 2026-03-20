@@ -1,7 +1,6 @@
 "use client";
 
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
 import {
@@ -161,9 +160,6 @@ export function QuickActions({
 }: QuickActionsProps) {
   const { openNewRecording } = useGeneralContext();
   const router = useRouter();
-  
-  // Tracking de botões
-  useButtonTracking();
 
   const actions: QuickAction[] = [
     {

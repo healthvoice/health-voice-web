@@ -21,8 +21,6 @@ import { TermsOfUseModal } from "./TermsOfUseModal";
 import { useApiContext } from "@/context/ApiContext";
 import { useTrackingContext } from "@/context/TrackingContext";
 import { Platform } from "@/services/analyticsService";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
-
 const FormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email({ message: "Email Inválido" }),
@@ -51,9 +49,6 @@ const RegisterForm = () => {
   // Debounce timers para tracking de inputs
   const nameDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const emailDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Tracking de botões
-  useButtonTracking();
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),

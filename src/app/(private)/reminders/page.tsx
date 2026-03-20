@@ -1,6 +1,5 @@
 "use client";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { usePageView } from "@/hooks/usePageView";
 import { cn } from "@/utils/cn";
 import { debounce } from "lodash";
@@ -27,9 +26,6 @@ export default function Reminders() {
 
   // Tracking de visualização de tela
   usePageView();
-  // Tracking de botões
-  useButtonTracking();
-
   const handleStopTyping = (value: string) => {
     setRemindersFilters((prev) => ({
       ...prev,

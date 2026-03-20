@@ -7,7 +7,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import Field from "./field";
 import { Form, FormField, FormItem, FormMessage } from "./form";
 
@@ -24,9 +23,6 @@ type EmailFormData = z.infer<typeof EmailFormSchema>;
 const ForgotPassword = ({ onClick }: ForgotPasswordProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  
-  // Tracking de botões
-  useButtonTracking();
 
   const form = useForm<EmailFormData>({
     resolver: zodResolver(EmailFormSchema),

@@ -4,7 +4,6 @@ import { useMediaRecorder } from "@/components/audio-recorder/use-media-recorder
 import { Dialog, DialogContent } from "@/components/ui/blocks/dialog";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useRecordingActions } from "@/services/recordingService";
 import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
@@ -77,7 +76,6 @@ export function NewReminderModal({
   const { PostAPI, GetAPI } = useApiContext();
   const { GetReminders } = useGeneralContext();
   const { uploadAndCreateRecording } = useRecordingActions();
-  useButtonTracking();
 
   const modalSourceRef = useRef<string>("reminders-page");
   const hasCompletedRecordingRef = useRef<boolean>(false);

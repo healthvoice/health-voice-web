@@ -4,7 +4,6 @@ import {
     consumeTourFinalStepPending,
     showRecordingTourFinalStep,
 } from "@/context/RecordingTourContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { usePageView } from "@/hooks/usePageView";
 import { cn } from "@/utils/cn";
 import { debounce } from "lodash";
@@ -19,7 +18,6 @@ export default function Recordings() {
   const [localQuery, setLocalQuery] = useState("");
 
   usePageView();
-  useButtonTracking();
 
   const handleStopTyping = (value: string) => {
     setRecordingsFilters((prev) => ({

@@ -3,7 +3,6 @@
 import { ReminderProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bell, Check, Plus, X } from "lucide-react";
@@ -30,9 +29,6 @@ export function TodayRemindersCompact({
     reminders: apiReminders,
     isGettingReminders,
   } = useGeneralContext();
-
-  // Tracking de botões
-  useButtonTracking();
 
   const [localStatuses, setLocalStatuses] = useState<LocalStatus>({});
 

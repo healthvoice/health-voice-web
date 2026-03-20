@@ -15,7 +15,6 @@ import {
   TranscriptionIcon,
 } from "@/components/ui/custom-icons";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ChevronRight } from "lucide-react";
 import moment from "moment";
@@ -32,8 +31,6 @@ export function GeneralRecordingTableItem({ recording }: Props) {
     setRecordingsFilters,
   } = useGeneralContext();
   const router = useRouter();
-
-  useButtonTracking();
 
   const handleNavigation = (e?: React.MouseEvent) => {
     e?.stopPropagation();

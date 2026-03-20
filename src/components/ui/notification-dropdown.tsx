@@ -1,7 +1,6 @@
 "use client";
 
 import type { NotificationProps } from "@/@types/general-client";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useNotifications } from "@/hooks/useNotifications";
 import { cn } from "@/utils/cn";
 import { convertAppRouteToWeb } from "@/utils/route-mapper";
@@ -85,9 +84,6 @@ export function NotificationDropdown() {
   } = useNotifications({ poll: true });
   const router = useRouter();
   
-  // Tracking de botões
-  useButtonTracking();
-
   return (
     <DropdownMenu onOpenChange={(open) => open && fetchNotifications(1)}>
       <DropdownMenuTrigger asChild>

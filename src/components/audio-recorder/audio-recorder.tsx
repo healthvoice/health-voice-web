@@ -1,3 +1,5 @@
+"use client";
+
 import { ClientProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";

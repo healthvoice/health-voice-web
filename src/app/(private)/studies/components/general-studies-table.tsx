@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/blocks/table";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -31,9 +30,6 @@ export function GeneralStudiesTable() {
 
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn>(null);
-
-  // Tracking de botões
-  useButtonTracking();
 
   const GeneralRecordingsColumns = [
     { key: "NAME", label: "Título da Gravação", sortable: true },

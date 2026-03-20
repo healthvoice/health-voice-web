@@ -3,7 +3,6 @@
 import { ClientProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
 import { handleApiError } from "@/utils/error-handler";
@@ -52,7 +51,6 @@ export function CreateClientModal({
 }: CreateClientModalProps) {
   const { PostAPI } = useApiContext();
   const { GetClients, setClients } = useGeneralContext();
-  useButtonTracking();
   const [isLoading, setIsLoading] = useState(false);
 
   const modalSourceRef = useRef<string>("clients-page");

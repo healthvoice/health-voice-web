@@ -1,5 +1,4 @@
 "use client";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import {
     Pagination,
@@ -24,8 +23,6 @@ export const CustomPagination = ({
   className,
   trackingPrefix = "recordings",
 }: Props) => {
-  useButtonTracking();
-
   const handleFirst = () => {
     if (currentPage > 1) {
       setCurrentPage(1);

@@ -1,7 +1,6 @@
 "use client";
 import { CreateClientModal } from "@/components/ui/create-client-modal";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { usePageView } from "@/hooks/usePageView";
 import { debounce } from "lodash";
 import { Plus, Search, Users } from "lucide-react";
@@ -20,9 +19,6 @@ export default function Clients() {
 
   // Tracking de visualização de tela
   usePageView();
-  // Tracking de botões
-  useButtonTracking();
-
   const handleStopTyping = (value: string) => {
     setClientsFilters((prev) => ({
       ...prev,

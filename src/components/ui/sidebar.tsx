@@ -2,7 +2,6 @@
 
 import { useGeneralContext } from "@/context/GeneralContext";
 import { useSession } from "@/context/auth";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useSidebar } from "@/store";
 import { cn } from "@/utils/cn";
 import {
@@ -224,9 +223,6 @@ export function Sidebar() {
   const [appUrl, setAppUrl] = useState<string>("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [clientsExpanded, setClientsExpanded] = useState(false);
-
-  // Tracking de botões
-  useButtonTracking();
 
   const isOnClientsFlow =
     pathname === "/clients" || pathname.startsWith("/clients/");

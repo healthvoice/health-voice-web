@@ -2,7 +2,6 @@
 
 import { ClientProps } from "@/@types/general-client";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { motion } from "framer-motion";
 import { ArrowRight, Plus, UserCircle2, Users } from "lucide-react";
@@ -22,9 +21,6 @@ interface RecentClientsProps {
 export function RecentClients({ className }: RecentClientsProps) {
   const router = useRouter();
   const { clients: apiClients, isGettingClients } = useGeneralContext();
-  
-  // Tracking de botões
-  useButtonTracking();
 
   const clients = useMemo(() => {
     return apiClients.slice(0, 4);

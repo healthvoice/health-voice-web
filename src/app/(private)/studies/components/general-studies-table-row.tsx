@@ -3,7 +3,6 @@ import { RecordingDetailsProps } from "@/@types/general-client";
 import { TableCell, TableRow } from "@/components/ui/blocks/table";
 import { StudyIcon } from "@/components/ui/custom-icons";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { ChevronRight } from "lucide-react";
 import moment from "moment";
@@ -17,9 +16,6 @@ interface Props {
 export function GeneralStudiesTableItem({ recording }: Props) {
   const { setSelectedRecording } = useGeneralContext();
   const router = useRouter();
-
-  // Tracking de botões
-  useButtonTracking();
 
   const handleNavigation = (e?: React.MouseEvent) => {
     e?.stopPropagation();

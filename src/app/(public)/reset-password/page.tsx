@@ -10,7 +10,6 @@ import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
 import { usePageView } from "@/hooks/usePageView";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import Field from "../login/components/field";
 import {
   Form,
@@ -255,9 +254,7 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   // Tracking de visualização de tela
   usePageView();
-  // Tracking de botões
-  useButtonTracking();
-  
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-white p-6">
       <div className="w-full max-w-md">

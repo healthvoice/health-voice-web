@@ -4,7 +4,6 @@ import { useGeneralContext } from "@/context/GeneralContext";
 import { FileText } from "lucide-react";
 import "moment/locale/pt-br";
 import { useRouter } from "next/navigation";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 
 interface Props {
   client: ClientProps;
@@ -14,9 +13,6 @@ export function GeneralClientTableItem({ client }: Props) {
   const { setSelectedClient, recordingsFilters, setRecordingsFilters } =
     useGeneralContext();
   const router = useRouter();
-
-  // Tracking de botões
-  useButtonTracking();
 
   const handleNavigation = () => {
     setSelectedClient(client);

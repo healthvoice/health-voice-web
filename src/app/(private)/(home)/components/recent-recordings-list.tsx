@@ -2,7 +2,6 @@
 
 import { RecordingDetailsProps } from "@/@types/general-client";
 import { useGeneralContext } from "@/context/GeneralContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { cn } from "@/utils/cn";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -64,9 +63,6 @@ export function RecentRecordingsList({ className }: RecentRecordingsListProps) {
   const router = useRouter();
   const { recordings: apiRecordings, isGettingRecordings } =
     useGeneralContext();
-  
-  // Tracking de botões
-  useButtonTracking();
 
   const recordings = useMemo(() => {
     return apiRecordings

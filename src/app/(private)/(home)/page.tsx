@@ -8,7 +8,6 @@ import { useSession } from "@/context/auth";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { TOUR_ENABLED, getTourCompleted, useRecordingTour } from "@/context/RecordingTourContext";
 import { useTrackingContext } from "@/context/TrackingContext";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { usePageView } from "@/hooks/usePageView";
 import { startSession } from "@/services/analyticsService";
@@ -74,7 +73,6 @@ export default function HomePage() {
 
   // Tracking hooks
   usePageView();
-  useButtonTracking();
 
   // Reset filters when entering the home page so recent items are not restricted
   // by filters applied in other pages (like specific client views).

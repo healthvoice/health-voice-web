@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { usePageView } from "@/hooks/usePageView";
-import { useButtonTracking } from "@/hooks/useButtonTracking";
 import ForgotPassword from "./components/forgot";
 import SignIn from "./components/login";
 import LoginAnimation from "./components/LoginAnimation";
@@ -13,8 +12,6 @@ export default function Login() {
   
   // Tracking de visualização de tela
   usePageView();
-  // Tracking de botões
-  useButtonTracking();
 
   return (
     <div className="flex min-h-screen w-full bg-white">
