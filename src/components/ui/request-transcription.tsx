@@ -3,6 +3,7 @@
 import { Modal } from "@/components/ui/modal";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useActionTracking } from "@/hooks/useActionTracking";
 import { cn } from "@/utils/cn";
 import { handleApiError } from "@/utils/error-handler";
 import { PromptIcon } from "@/utils/prompt-icon";
@@ -32,6 +33,7 @@ export function RequestTranscription({
 }: RequestTranscriptionProps = {}) {
   const { selectedRecording, setSelectedRecording } = useGeneralContext();
   const { PutAPI, GetAPI } = useApiContext();
+  const trackAction = useActionTracking();
   const [isRequesting, setIsRequesting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [prompts, setPrompts] = useState<PromptOption[]>([]);
@@ -40,6 +42,7 @@ export function RequestTranscription({
   const [selectedPrompt, setSelectedPrompt] = useState<
     PromptOption | "default" | null
   >(null);
+  const [hasRequestedTranscription, setHasRequestedTranscription] = useState(false);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -47,6 +50,7 @@ export function RequestTranscription({
     } else {
       setSearchQuery("");
       setSelectedPrompt(null);
+      setHasRequestedTranscription(false);
     }
   }, [isModalOpen]);
 
@@ -79,6 +83,23 @@ export function RequestTranscription({
       return;
     }
     setIsRequesting(true);
+    
+    // ── Tracking: TRANSCRIPTION_REQUESTED quando solicita transcrição
+    try {
+      await trackAction({
+        actionType: "TRANSCRIPTION_REQUESTED",
+        recordingId: selectedRecording.id,
+        metadata: {
+          promptId: promptId || "default",
+          promptType: promptId ? "custom" : "default",
+        },
+      });
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("❌ [Tracking] Erro ao rastrear solicitação de transcrição:", error);
+      }
+    }
+    
     const request = await PutAPI(
       `/recording/${selectedRecording?.id}`,
       {
@@ -93,6 +114,7 @@ export function RequestTranscription({
         ...selectedRecording,
         transcriptionStatus: "PENDING",
       });
+      setHasRequestedTranscription(true);
       setIsModalOpen(false);
       setIsRequesting(false);
       return;
@@ -107,15 +129,69 @@ export function RequestTranscription({
 
   function handleOpenModal() {
     setIsModalOpen(true);
+    setHasRequestedTranscription(false);
+    
+    // ── Tracking: MODAL_OPENED quando abre a modal de seleção de prompt
+    if (selectedRecording) {
+      trackAction({
+        actionType: "MODAL_OPENED",
+        recordingId: selectedRecording.id,
+        metadata: {
+          modalId: "request-transcription-modal",
+          source: "request-transcription-button",
+        },
+      }).catch((error) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("❌ [Tracking] Erro ao rastrear abertura de modal:", error);
+        }
+      });
+    }
   }
 
   function handleCloseModal() {
+    // ── Tracking: MODAL_CLOSED quando fecha a modal sem solicitar transcrição
+    if (selectedRecording && !hasRequestedTranscription) {
+      trackAction({
+        actionType: "MODAL_CLOSED",
+        recordingId: selectedRecording.id,
+        metadata: {
+          modalId: "request-transcription-modal",
+          source: "request-transcription-button",
+          reason: "cancelled",
+          hadSelectedPrompt: selectedPrompt !== null,
+          selectedPromptId: selectedPrompt && selectedPrompt !== "default" ? selectedPrompt.id : selectedPrompt === "default" ? "default" : null,
+        },
+      }).catch((error) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("❌ [Tracking] Erro ao rastrear fechamento de modal:", error);
+        }
+      });
+    }
+    
     setIsModalOpen(false);
     setSelectedPrompt(null);
   }
 
   function handleSelectPrompt(prompt: PromptOption | "default") {
     setSelectedPrompt(prompt);
+    
+    // ── Tracking: PROMPT_SELECTED quando seleciona um prompt
+    if (selectedRecording) {
+      trackAction({
+        actionType: "PROMPT_SELECTED",
+        recordingId: selectedRecording.id,
+        metadata: {
+          promptId: prompt === "default" ? "default" : prompt.id,
+          promptName: prompt === "default" ? "Prompt Padrão" : prompt.name,
+          promptType: prompt === "default" ? "default" : "custom",
+          promptSource: prompt === "default" ? null : prompt.source,
+        },
+      }).catch((error) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("❌ [Tracking] Erro ao rastrear seleção de prompt:", error);
+        }
+      });
+    }
   }
 
   function handleConfirmSelection() {
@@ -161,7 +237,7 @@ export function RequestTranscription({
         prompt.content.toLowerCase().includes(query),
     );
   }, [prompts, searchQuery]);
-  console.log(selectedPrompt);
+  
   return (
     <>
       <button
