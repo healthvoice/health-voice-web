@@ -7,10 +7,12 @@ import { cn } from "@/utils/cn";
 import { handleApiError } from "@/utils/error-handler";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Pencil, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import toast from "react-hot-toast";
 import z from "zod";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { Dialog, DialogContent } from "@/components/ui/blocks/dialog";
 import {
   Form,
@@ -40,9 +42,12 @@ export function EditClientModal({
   onOpenChange,
   client,
 }: EditClientModalProps) {
-  const { PutAPI } = useApiContext();
+  const { PutAPI, PostAPI } = useApiContext();
   const { setSelectedClient, GetClients, setClients } = useGeneralContext();
   const [isLoading, setIsLoading] = useState(false);
+  const pathname = usePathname();
+  const hasModalOpenedRef = useRef(false);
+  const modalSourceRef = useRef<string>("");
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -53,6 +58,91 @@ export function EditClientModal({
       birthDate: "",
     },
   });
+
+  // Tracking: MODAL_OPENED quando a modal é aberta
+  useEffect(() => {
+    if (open && !hasModalOpenedRef.current) {
+      // Identificar origem da modal
+      let source = "unknown";
+      if (pathname.includes("/clients/")) {
+        source = "clients-page";
+      } else if (pathname.includes("/dashboard")) {
+        source = "dashboard-page";
+      }
+
+      modalSourceRef.current = source;
+      hasModalOpenedRef.current = true;
+
+      const metadata: Record<string, unknown> = {
+        modalId: "edit-client-modal",
+        source,
+        clientId: client?.id,
+      };
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("📤 [EditClientModal] Enviando MODAL_OPENED:", {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata,
+        });
+      }
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata,
+        },
+        PostAPI,
+      )
+        .then(() => {
+          if (process.env.NODE_ENV === "development") {
+            console.log("✅ [EditClientModal] MODAL_OPENED enviado com sucesso");
+          }
+        })
+        .catch((error) => {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [EditClientModal] Erro ao registrar MODAL_OPENED:", error);
+          }
+        });
+    }
+  }, [open, pathname, client?.id, PostAPI]);
+
+  // Tracking: MODAL_CLOSED quando a modal é fechada
+  useEffect(() => {
+    if (!open && hasModalOpenedRef.current) {
+      const metadata = {
+        modalId: "edit-client-modal",
+        source: modalSourceRef.current,
+        clientId: client?.id,
+      };
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("📤 [EditClientModal] Enviando MODAL_CLOSED:", {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata,
+        });
+      }
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata,
+        },
+        PostAPI,
+      )
+        .then(() => {
+          if (process.env.NODE_ENV === "development") {
+            console.log("✅ [EditClientModal] MODAL_CLOSED enviado com sucesso");
+          }
+        })
+        .catch((error) => {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [EditClientModal] Erro ao registrar MODAL_CLOSED:", error);
+          }
+        });
+
+      hasModalOpenedRef.current = false;
+    }
+  }, [open, client?.id, PostAPI]);
 
   useEffect(() => {
     if (!open || !client) return;
@@ -134,6 +224,42 @@ export function EditClientModal({
         prev.map((c) => (c.id === client.id ? updatedClient : c)),
       );
       await GetClients();
+
+      // Tracking: CLIENT_UPDATED quando cliente é atualizado com sucesso
+      const metadata: Record<string, unknown> = {
+        clientId: client.id,
+        fieldsUpdated: {
+          name: values.name !== client.name,
+          description: values.description !== (client.description ?? ""),
+          birthDate: values.birthDate !== (client.birthDate ?? ""),
+        },
+      };
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("📤 [EditClientModal] Enviando CLIENT_UPDATED:", {
+          actionType: UserActionType.CLIENT_UPDATED,
+          metadata,
+        });
+      }
+
+      trackAction(
+        {
+          actionType: UserActionType.CLIENT_UPDATED,
+          metadata,
+        },
+        PostAPI,
+      )
+        .then(() => {
+          if (process.env.NODE_ENV === "development") {
+            console.log("✅ [EditClientModal] CLIENT_UPDATED enviado com sucesso");
+          }
+        })
+        .catch((error) => {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [EditClientModal] Erro ao registrar CLIENT_UPDATED:", error);
+          }
+        });
+
       setIsLoading(false);
       onOpenChange(false);
       return;
@@ -168,6 +294,7 @@ export function EditClientModal({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
+              data-tracking-id="edit-client-modal-close"
               className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
             >
               <X size={20} className="text-gray-400" />
@@ -260,6 +387,7 @@ export function EditClientModal({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
+              data-tracking-id="edit-client-modal-cancel"
               className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200"
             >
               Cancelar
@@ -268,6 +396,7 @@ export function EditClientModal({
               type="button"
               onClick={() => handleSubmit(form)}
               disabled={isLoading}
+              data-tracking-id="edit-client-modal-save"
               className="flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg disabled:opacity-70"
             >
               {isLoading ? (

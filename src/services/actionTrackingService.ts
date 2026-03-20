@@ -16,6 +16,7 @@ export enum UserActionType {
   // Client actions
   CLIENT_SELECTED = "CLIENT_SELECTED",
   CLIENT_CREATED = "CLIENT_CREATED",
+  CLIENT_UPDATED = "CLIENT_UPDATED",
 }
 
 interface TrackActionParams {
