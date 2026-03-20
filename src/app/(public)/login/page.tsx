@@ -2,12 +2,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { usePageView } from "@/hooks/usePageView";
 import ForgotPassword from "./components/forgot";
 import SignIn from "./components/login";
 import LoginAnimation from "./components/LoginAnimation";
 
 export default function Login() {
   const [forgot, setForgot] = useState<boolean>(false);
+  
+  // Tracking de visualização de tela
+  usePageView();
 
   return (
     <div className="flex min-h-screen w-full bg-white">
@@ -71,6 +75,8 @@ export default function Login() {
                   Não tem uma conta?{" "}
                   <Link
                     href="/register"
+                    data-tracking-id="login-register-link"
+                    data-tracking-destination="/register"
                     className="font-semibold text-primary hover:text-blue-700 transition-colors"
                   >
                     Cadastre-se
@@ -80,6 +86,7 @@ export default function Login() {
               {forgot && (
                 <button
                   onClick={() => setForgot(false)}
+                  data-tracking-id="login-back-to-login-button"
                   className="font-semibold text-primary hover:text-blue-700 transition-colors"
                 >
                   Voltar ao login

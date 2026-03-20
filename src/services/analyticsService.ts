@@ -22,7 +22,7 @@ interface PostAPIFunction {
 export async function startSession(
   PostAPI: PostAPIFunction,
   locationData?: GeolocationData | null
-) {
+): Promise<string | null> {
   try {
     const deviceInfo: DeviceInfo = {
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -46,16 +46,114 @@ export async function startSession(
       payload.locationTimestamp = new Date(locationData.timestamp).toISOString();
     }
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔐 [Tracking] Iniciando sessão de analytics...');
+    }
+
     const response = await PostAPI(
       '/analytics/session/start',
       payload,
       true,
     );
 
-    if (response.status !== 200) {
-      console.error('Erro ao iniciar sessão de analytics:', response.status);
+    if (response.status === 200 && response.body?.session?.id) {
+      const sessionId = response.body.session.id;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ [Tracking] Sessão iniciada com sucesso:', { sessionId });
+      }
+      
+      return sessionId;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [Tracking] Erro ao iniciar sessão de analytics:', response.status);
+      }
+      return null;
     }
   } catch (error) {
-    console.error('Erro ao iniciar sessão de analytics:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [Tracking] Erro ao iniciar sessão de analytics:', error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Envia um ping de sessão ativa
+ * Armazena o ping no backend para processamento pelo cronjob
+ */
+export async function pingSession(
+  PostAPI: PostAPIFunction,
+  sessionId: string
+): Promise<boolean> {
+  try {
+    if (!sessionId) {
+      return false;
+    }
+
+    const response = await PostAPI(
+      '/analytics/session/ping',
+      { sessionId },
+      true,
+    );
+
+    if (response.status === 200 || response.status === 201) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📡 [Tracking] Ping enviado com sucesso');
+      }
+      return true;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [Tracking] Erro ao enviar ping:', response.status);
+      }
+      return false;
+    }
+  } catch (error) {
+    // Erros de tracking devem ser silenciosos
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [Tracking] Erro ao enviar ping:', error);
+    }
+    return false;
+  }
+}
+
+/**
+ * Finaliza uma sessão
+ */
+export async function endSession(
+  PostAPI: PostAPIFunction,
+  sessionId: string
+): Promise<boolean> {
+  try {
+    if (!sessionId) {
+      return false;
+    }
+
+    const response = await PostAPI(
+      '/analytics/session/end',
+      {
+        sessionId,
+        endedAt: new Date().toISOString(),
+      },
+      true,
+    );
+
+    if (response.status === 200 || response.status === 201) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔚 [Tracking] Sessão finalizada com sucesso');
+      }
+      return true;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [Tracking] Erro ao finalizar sessão:', response.status);
+      }
+      return false;
+    }
+  } catch (error) {
+    // Erros de tracking devem ser silenciosos
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ [Tracking] Erro ao finalizar sessão:', error);
+    }
+    return false;
   }
 }

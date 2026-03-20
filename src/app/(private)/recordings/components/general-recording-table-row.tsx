@@ -1,3 +1,4 @@
+"use client";
 import { ClientProps, RecordingDetailsProps } from "@/@types/general-client";
 import { TableCell, TableRow } from "@/components/ui/blocks/table";
 import {
@@ -64,7 +65,7 @@ export function GeneralRecordingTableItem({ recording }: Props) {
         clientId: undefined,
         type: "REMINDER",
       });
-      router.push(`/reminders/${recording.id}`);
+      router.push(`/reminders/${recording.reminderId}`);
     }
   };
 
@@ -106,8 +107,44 @@ export function GeneralRecordingTableItem({ recording }: Props) {
   const typeStyle = getTypeStyle();
   const Icon = typeStyle.icon;
 
+  const transcriptionStatusConfig: Record<
+    RecordingDetailsProps["transcriptionStatus"],
+    { label: string; className: string }
+  > = {
+    DONE: {
+      label: "Transcrita",
+      className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20",
+    },
+    TRANSCRIBING: {
+      label: "Processando",
+      className: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
+    },
+    PENDING: {
+      label: "Pendente",
+      className: "bg-gray-50 text-gray-500 ring-1 ring-gray-300/50",
+    },
+    NOT_REQUESTED: {
+      label: "Sem transcrição",
+      className: "bg-gray-50 text-gray-400 ring-1 ring-gray-200",
+    },
+  };
+
+  const transcriptionStatus =
+    transcriptionStatusConfig[recording.transcriptionStatus] ??
+    transcriptionStatusConfig["PENDING"];
+
   return (
     <TableRow
+      data-tracking-id={`recordings-table-row-${recording.type.toLowerCase()}-${recording.id}`}
+      data-tracking-destination={
+        recording.type === "CLIENT"
+          ? `/clients/${recording.client?.id}/${recording.id}`
+          : recording.type === "STUDY"
+            ? `/studies/${recording.id}`
+            : recording.type === "OTHER"
+              ? `/others/${recording.id}`
+              : `/reminders/${recording.id}`
+      }
       onClick={handleNavigation}
       key={recording.id}
       className="group h-16 cursor-pointer border-b border-gray-100 bg-white transition-all duration-200 hover:bg-gray-50"
@@ -155,8 +192,10 @@ export function GeneralRecordingTableItem({ recording }: Props) {
           </Tooltip>
         </TooltipProvider>
       </TableCell>
-      <TableCell className="py-2 text-start text-sm font-semibold whitespace-nowrap text-gray-700">
-        {recording.name || "Sem título"}
+      <TableCell className="max-w-[200px] py-2 text-start text-sm font-semibold text-gray-700">
+        <span className="block truncate" title={recording.name || "Sem título"}>
+          {recording.name || "Sem título"}
+        </span>
       </TableCell>
       <TableCell className="py-2 text-start text-sm whitespace-nowrap text-gray-500">
         {moment(recording.createdAt).format("DD/MM/YYYY - HH:mm") || "N/A"}
@@ -164,9 +203,29 @@ export function GeneralRecordingTableItem({ recording }: Props) {
       <TableCell className="py-2 text-start text-sm whitespace-nowrap text-gray-500">
         {recording.duration || "00:00"}
       </TableCell>
+      <TableCell className="py-2 text-start">
+        <span
+          className={cn(
+            "inline-flex items-center rounded-lg px-2.5 py-1 text-center text-xs font-medium ring-1",
+            transcriptionStatus.className,
+          )}
+        >
+          {transcriptionStatus.label}
+        </span>
+      </TableCell>
       <TableCell className="py-2 pr-4 text-xs font-medium whitespace-nowrap text-zinc-400">
         <div className="flex items-center justify-end">
           <button
+            data-tracking-id={`recordings-table-access-${recording.type.toLowerCase()}-${recording.id}`}
+            data-tracking-destination={
+              recording.type === "CLIENT"
+                ? `/clients/${recording.client?.id}/${recording.id}`
+                : recording.type === "STUDY"
+                  ? `/studies/${recording.id}`
+                  : recording.type === "OTHER"
+                    ? `/others/${recording.id}`
+                    : `/reminders/${recording.id}`
+            }
             onClick={handleNavigation}
             className="group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary hover:!bg-primary hover:shadow-primary/25 flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-all duration-300 hover:!text-white"
           >

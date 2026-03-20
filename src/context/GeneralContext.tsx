@@ -74,10 +74,18 @@ interface GeneralContextProps {
   newRecordingRequest: {
     type: "CLIENT" | "PERSONAL";
     subType?: "REMINDER" | "STUDY" | "OTHER";
+    /** Abre no mesmo layout da nova gravação com conteúdo só para lembrete (sem nome). */
+    simplifiedLembrete?: boolean;
+    /** Abre no mesmo layout com seletor só Estudos/Outros + iniciar. */
+    simplifiedPersonal?: boolean;
   } | null;
   openNewRecording: (
     type: "CLIENT" | "PERSONAL",
     subType?: "REMINDER" | "STUDY" | "OTHER",
+    options?: {
+      simplifiedLembrete?: boolean;
+      simplifiedPersonal?: boolean;
+    },
   ) => void;
   resetNewRecordingRequest: () => void;
 }
@@ -145,11 +153,20 @@ export const GeneralContextProvider = ({ children }: ProviderProps) => {
   const [newRecordingRequest, setNewRecordingRequest] = useState<{
     type: "CLIENT" | "PERSONAL";
     subType?: "REMINDER" | "STUDY" | "OTHER";
+    simplifiedLembrete?: boolean;
+    simplifiedPersonal?: boolean;
   } | null>(null);
 
   const openNewRecording = useCallback(
-    (type: "CLIENT" | "PERSONAL", subType?: "REMINDER" | "STUDY" | "OTHER") => {
-      setNewRecordingRequest({ type, subType });
+    (
+      type: "CLIENT" | "PERSONAL",
+      subType?: "REMINDER" | "STUDY" | "OTHER",
+      options?: {
+        simplifiedLembrete?: boolean;
+        simplifiedPersonal?: boolean;
+      },
+    ) => {
+      setNewRecordingRequest({ type, subType, ...options });
     },
     [],
   );

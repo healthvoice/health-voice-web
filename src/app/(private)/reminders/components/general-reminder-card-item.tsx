@@ -37,6 +37,8 @@ export function GeneralReminderCardItem({ reminder, index }: Props) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: index * 0.05 }}
         onClick={handleNavigation}
+        data-tracking-id={`reminders-card-${reminder.id}`}
+        data-tracking-destination={`/reminders/${reminder.id}`}
         className="group hover:border-primary/20 hover:shadow-primary/5 relative flex cursor-pointer flex-col gap-4 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
       >
         {/* Header with Icon, Title and Date */}
@@ -84,6 +86,7 @@ export function GeneralReminderCardItem({ reminder, index }: Props) {
 
             <button
               onClick={handleOpenEdit}
+              data-tracking-id={`reminders-card-${reminder.id}-edit-button`}
               className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[10px] font-bold text-blue-600 shadow-sm ring-1 ring-gray-100 transition-all hover:bg-blue-600 hover:text-white hover:ring-blue-600"
             >
               <Pencil className="h-3 w-3" />
@@ -107,6 +110,8 @@ export function GeneralReminderCardItem({ reminder, index }: Props) {
 
           <button
             onClick={handleNavigation}
+            data-tracking-id={`reminders-card-${reminder.id}-access-button`}
+            data-tracking-destination={`/reminders/${reminder.id}`}
             className="group-hover:bg-primary flex items-center gap-1.5 rounded-xl bg-gray-50 px-4 py-2 text-xs font-bold text-gray-600 transition-all duration-300 group-hover:text-white group-hover:shadow-lg group-hover:shadow-blue-500/25"
           >
             <span>Acessar</span>

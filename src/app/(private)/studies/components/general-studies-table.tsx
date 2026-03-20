@@ -35,6 +35,7 @@ export function GeneralStudiesTable() {
     { key: "NAME", label: "Título da Gravação", sortable: true },
     { key: "CREATED_AT", label: "Horário da Gravação", sortable: true },
     { key: "DURATION", label: "Tempo de Gravação", sortable: true },
+    { key: "TRANSCRIPTION_STATUS", label: "Transcrição", sortable: false },
     { key: "ACTIONS", label: "Ações", sortable: false },
   ];
 
@@ -99,17 +100,22 @@ export function GeneralStudiesTable() {
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <Table wrapperClass="h-full">
           <TableHeader>
-            <TableRow className="gap-1 bg-slate-100 hover:bg-slate-100">
+            <TableRow className="gap-1 bg-gradient-to-br from-sky-500 to-blue-600">
               {GeneralRecordingsColumns.map((column) => (
                 <TableHead
                   key={column.key}
                   className={cn(
-                    "h-12 text-xs font-semibold tracking-wider text-slate-600 uppercase",
+                    "h-12 text-xs font-semibold tracking-wider text-white/90 uppercase",
                     column.sortable &&
-                      "cursor-pointer select-none hover:text-slate-800",
+                      "cursor-pointer select-none hover:text-white",
                   )}
                   onClick={() =>
                     column.sortable && handleSort(column.key as SortableColumn)
+                  }
+                  data-tracking-id={
+                    column.sortable
+                      ? `studies-table-sort-${column.key.toLowerCase()}`
+                      : undefined
                   }
                 >
                   <div
@@ -165,6 +171,7 @@ export function GeneralStudiesTable() {
                 setRecordingsFilters((prev) => ({ ...prev, page }))
               }
               pages={recordingsTotalPages}
+              trackingPrefix="studies"
             />
           </div>
         )}

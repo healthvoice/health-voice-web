@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/blocks/dialog";
-import { RequestTranscription } from "@/components/ui/request-transcription";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
@@ -22,6 +21,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { PendingRecordingEmptyState } from "@/components/pending-recording-empty-state";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 interface SpeakerConfig {
@@ -101,6 +101,10 @@ export function Transcription() {
     }
   }, [editingId]);
 
+  const hasTranscriptionContent =
+    (selectedRecording?.speeches && selectedRecording.speeches.length > 0) ||
+    !!selectedRecording?.transcription;
+
   const rows = useMemo(() => {
     // Use custom names from speakerConfigs
     const speakersWithCustomNames = selectedRecording?.speakers?.map(
@@ -117,7 +121,11 @@ export function Transcription() {
       selectedRecording?.speeches,
       speakersWithCustomNames,
     );
-  }, [selectedRecording?.speeches, selectedRecording?.speakers, speakerConfigs]);
+  }, [
+    selectedRecording?.speeches,
+    selectedRecording?.speakers,
+    speakerConfigs,
+  ]);
 
   // Helper to determine if the speaker is the professional (right side)
   const isProfessional = (speakerId: string) => {
@@ -257,7 +265,7 @@ export function Transcription() {
           className="max-w-lg overflow-hidden p-0 sm:rounded-2xl"
           onWheel={(e) => e.stopPropagation()}
         >
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 px-6 py-5">
+          <div className="bg-gradient-to-br from-sky-500 to-blue-600 px-6 py-5">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
@@ -350,7 +358,7 @@ export function Transcription() {
                             onChange={(e) => setEditValue(e.target.value)}
                             onKeyDown={handleKeyDown}
                             onBlur={handleSaveEdit}
-                            className="flex-1 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none ring-2 ring-blue-500/20 focus:border-blue-500"
+                            className="flex-1 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-2 ring-blue-500/20 outline-none focus:border-blue-500"
                             placeholder="Nome do locutor"
                           />
                           <button
@@ -378,7 +386,7 @@ export function Transcription() {
                           </span>
                           <button
                             onClick={() => handleStartEdit(config)}
-                            className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-600 group-hover:opacity-100"
+                            className="rounded p-1 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-slate-200 hover:text-slate-600"
                             title="Editar nome"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -409,7 +417,7 @@ export function Transcription() {
               <button
                 onClick={handleSaveSpeakerConfigs}
                 disabled={isSaving}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSaving ? (
                   <>
@@ -425,29 +433,32 @@ export function Transcription() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex w-full h-[calc(100vh-250px)] flex-col rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="flex w-full flex-row items-center justify-between border-b border-b-slate-200 px-4 pt-2 pb-2 bg-white flex-shrink-0">
-          <div className="flex-1" />
-          {/* {selectedRecording?.audioUrl && (
-            <WaveformAudioPlayer
-              audioUrl={selectedRecording.audioUrl}
-              videoDuration={selectedRecording.duration}
-            />
-          )} */}
-          <div className="flex flex-1 items-center justify-end">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition-all hover:shadow-lg hover:shadow-blue-600/30 active:scale-[0.98]"
-            >
-              <Users className="h-4 w-4" />
-              Organizar Locutores
-            </button>
+      <div className="flex h-[calc(100vh-250px)] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex w-full flex-shrink-0 flex-row items-center justify-between border-b border-slate-200 bg-blue-500 bg-gray-50/60 px-4 py-3">
+          <h2 className="flex-1 text-base font-semibold text-gray-700">
+            Transcrição Completa
+          </h2>
+          <h2 className="text-primary max-w-[40%] truncate text-base font-bold">
+            {selectedRecording?.name}
+          </h2>
+          <div className="flex min-w-0 flex-1 items-center justify-end">
+            {hasTranscriptionContent ? (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition-all hover:shadow-lg hover:shadow-blue-600/30 active:scale-[0.98]"
+              >
+                <Users className="h-4 w-4" />
+                Organizar Locutores
+              </button>
+            ) : (
+              <></>
+            )}
           </div>
         </div>
         <div
           ref={scrollContainerRef}
           onWheel={handleWheel}
-          className="flex flex-1 w-full flex-col gap-6 overflow-y-auto overflow-x-hidden p-4 overscroll-contain"
+          className="flex w-full flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain p-4"
         >
           {selectedRecording?.speeches.length !== 0 ? (
             rows.map((speech) => {
@@ -502,25 +513,24 @@ export function Transcription() {
               );
             })
           ) : selectedRecording?.transcription ? (
-            <div className="flex flex-col gap-4 px-10">
-              <p className="text-primary m-auto w-full text-justify text-base font-extrabold">
+            <div className="flex flex-col gap-4 px-4 sm:px-10">
+              <p className="text-primary w-full text-justify text-base font-semibold">
                 Transcrição Completa
               </p>
-              <div className="m-auto w-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <p className="text-justify text-base leading-relaxed font-medium text-gray-700">
+              <div className="w-full rounded-2xl border border-gray-100 bg-gray-50/50 p-6 shadow-sm">
+                <p className="text-justify text-base leading-relaxed text-gray-700">
                   {selectedRecording.transcription}
                 </p>
               </div>
             </div>
           ) : (
-            <>
-              <h1 className="text-primary m-auto w-full text-center text-3xl font-extrabold md:w-max">
-                Transcrição não disponível
-              </h1>
-              <div className="prose prose-sm prose-h1:text-center prose-h1:text-primary prose-h2:text-primary w-full max-w-none">
-                <RequestTranscription />
-              </div>
-            </>
+            <div className="flex flex-1 items-center justify-center p-6">
+              <PendingRecordingEmptyState
+                variant="transcricao"
+                isPrincipal={true}
+                className="min-h-[280px] w-full max-w-lg"
+              />
+            </div>
           )}
         </div>
       </div>

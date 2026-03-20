@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/blocks/dialog";
 import { useApiContext } from "@/context/ApiContext";
 import { User, useSession } from "@/context/auth";
+import { useTrackingContext } from "@/context/TrackingContext";
+import { trackAction, UserActionType } from "@/services/actionTrackingService";
 import { cn } from "@/utils/cn";
 import {
   AlertCircle,
@@ -20,7 +22,8 @@ import {
   Save,
   User as UserIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 interface FormData {
   name: string;
@@ -143,7 +146,14 @@ interface ProfileModalProps {
 
 export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
   const { profile, setProfile, handleGetProfile } = useSession();
-  const { PutAPI } = useApiContext();
+  const { PutAPI, PostAPI } = useApiContext();
+  const { sessionId } = useTrackingContext();
+  const pathname = usePathname();
+
+  // Log do sessionId
+  useEffect(() => {
+    console.log("🔑 [ProfileModal] sessionId:", sessionId);
+  }, [sessionId]);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -161,6 +171,123 @@ export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
   );
   const [errorMessage, setErrorMessage] = useState("");
 
+  const hasModalOpenedRef = useRef<boolean>(false);
+  const modalSourceRef = useRef<string>("sidebar");
+
+  // Log quando isOpen muda
+  useEffect(() => {
+    console.log("🔄 [ProfileModal] isOpen mudou:", {
+      isOpen,
+      pathname,
+      hasModalOpenedRef: hasModalOpenedRef.current,
+    });
+  }, [isOpen, pathname]);
+
+  // Tracking: MODAL_OPENED quando a modal é aberta
+  useEffect(() => {
+    console.log("🔍 [ProfileModal] useEffect MODAL_OPENED:", {
+      isOpen,
+      hasModalOpenedRef: hasModalOpenedRef.current,
+      pathname,
+    });
+
+    if (isOpen && !hasModalOpenedRef.current) {
+      // Determinar source da modal baseado no pathname
+      let source = "sidebar";
+      if (pathname.includes("/home") || pathname === "/") {
+        source = "home-page";
+      } else if (pathname.includes("/clients")) {
+        source = "clients-page";
+      } else if (pathname.includes("/reminders")) {
+        source = "reminders-page";
+      } else if (pathname.includes("/studies")) {
+        source = "studies-page";
+      } else if (pathname.includes("/others")) {
+        source = "others-page";
+      } else if (pathname.includes("/dashboard")) {
+        source = "dashboard-page";
+      } else if (pathname.includes("/recordings")) {
+        source = "recordings-page";
+      }
+
+      modalSourceRef.current = source;
+      hasModalOpenedRef.current = true;
+
+      const metadata: Record<string, unknown> = {
+        modalId: "profile-modal",
+        source,
+      };
+
+      console.log("📤 [ProfileModal] Enviando MODAL_OPENED:", {
+        actionType: UserActionType.MODAL_OPENED,
+        metadata,
+      });
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_OPENED,
+          metadata,
+        },
+        PostAPI,
+      )
+        .then(() => {
+          console.log("✅ [ProfileModal] MODAL_OPENED enviado com sucesso");
+        })
+        .catch((error) => {
+          console.error("❌ [ProfileModal] Erro ao registrar MODAL_OPENED:", error);
+        });
+    } else {
+      console.log("⏭️ [ProfileModal] MODAL_OPENED não enviado:", {
+        isOpen,
+        hasModalOpenedRef: hasModalOpenedRef.current,
+      });
+    }
+  }, [isOpen, pathname, PostAPI]);
+
+  // Tracking: MODAL_CLOSED quando a modal é fechada
+  useEffect(() => {
+    console.log("🔍 [ProfileModal] useEffect MODAL_CLOSED:", {
+      isOpen,
+      hasModalOpenedRef: hasModalOpenedRef.current,
+      saveStatus,
+    });
+
+    if (!isOpen && hasModalOpenedRef.current) {
+      const reason = saveStatus === "success" ? "completed" : "cancelled";
+      const metadata = {
+        modalId: "profile-modal",
+        source: modalSourceRef.current,
+        reason,
+      };
+
+      console.log("📤 [ProfileModal] Enviando MODAL_CLOSED:", {
+        actionType: UserActionType.MODAL_CLOSED,
+        metadata,
+      });
+
+      trackAction(
+        {
+          actionType: UserActionType.MODAL_CLOSED,
+          metadata,
+        },
+        PostAPI,
+      )
+        .then(() => {
+          console.log("✅ [ProfileModal] MODAL_CLOSED enviado com sucesso");
+        })
+        .catch((error) => {
+          console.error("❌ [ProfileModal] Erro ao registrar MODAL_CLOSED:", error);
+        });
+
+      hasModalOpenedRef.current = false;
+    } else {
+      console.log("⏭️ [ProfileModal] MODAL_CLOSED não enviado:", {
+        isOpen,
+        hasModalOpenedRef: hasModalOpenedRef.current,
+      });
+    }
+  }, [isOpen, saveStatus, PostAPI]);
+
   // Sync form data with profile when modal opens
   useEffect(() => {
     if (isOpen && profile) {
@@ -171,12 +298,31 @@ export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
         mobilePhone: profile.mobilePhone ? maskPhone(profile.mobilePhone) : "",
         address: profile.address || "",
         addressNumber: profile.addressNumber || "",
-        postalCode: profile.postalCode ? maskPostalCode(profile.postalCode) : "",
+        postalCode: profile.postalCode
+          ? maskPostalCode(profile.postalCode)
+          : "",
       });
       setSaveStatus("idle");
       setErrorMessage("");
     }
   }, [isOpen, profile]);
+
+  // Verificar se o botão tem data-tracking-id quando a modal está aberta
+  useEffect(() => {
+    if (isOpen) {
+      // Aguardar um pouco para o DOM estar pronto
+      const timer = setTimeout(() => {
+        const saveButton = document.querySelector('[data-tracking-id="profile-modal-save"]');
+        console.log("🔍 [ProfileModal] Verificando botão de salvar:", {
+          buttonFound: !!saveButton,
+          buttonElement: saveButton,
+          buttonId: saveButton?.getAttribute("data-tracking-id"),
+        });
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -185,14 +331,19 @@ export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("🖱️ [ProfileModal] Botão de salvar clicado");
+    
     setIsLoading(true);
     setSaveStatus("idle");
     setErrorMessage("");
 
     try {
+      console.log("📤 [ProfileModal] Enviando dados do formulário:", formData);
       const response = await PutAPI("/user", formData, true);
+      console.log("📥 [ProfileModal] Resposta da API:", response.status);
 
       if (response.status === 200) {
+        console.log("✅ [ProfileModal] Perfil salvo com sucesso");
         setSaveStatus("success");
         // Update local profile state
         setProfile((prev: User | null) =>
@@ -203,19 +354,29 @@ export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
 
         // Close modal after short delay on success
         setTimeout(() => {
+          console.log("🔒 [ProfileModal] Fechando modal após sucesso");
           onOpenChange(false);
         }, 1500);
       } else {
+        console.error("❌ [ProfileModal] Erro ao salvar:", response.body);
         setSaveStatus("error");
         setErrorMessage(response.body?.message || "Erro ao salvar alterações");
       }
-    } catch {
+    } catch (error) {
+      console.error("❌ [ProfileModal] Erro ao conectar com o servidor:", error);
       setSaveStatus("error");
       setErrorMessage("Erro ao conectar com o servidor");
     } finally {
       setIsLoading(false);
     }
   };
+
+  console.log("🎨 [ProfileModal] Renderizando componente:", {
+    isOpen,
+    isLoading,
+    saveStatus,
+    hasModalOpenedRef: hasModalOpenedRef.current,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -350,7 +511,10 @@ export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
             <div className="mt-8 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                  console.log("🖱️ [ProfileModal] Botão cancelar clicado");
+                  onOpenChange(false);
+                }}
                 className="rounded-xl px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
               >
                 Cancelar
@@ -358,6 +522,15 @@ export function ProfileModal({ isOpen, onOpenChange }: ProfileModalProps) {
               <button
                 type="submit"
                 disabled={isLoading}
+                data-tracking-id="profile-modal-save"
+                onClick={(e) => {
+                  console.log("🖱️ [ProfileModal] Botão salvar clicado (onClick handler)");
+                  console.log("🔍 [ProfileModal] Elemento do botão:", {
+                    element: e.currentTarget,
+                    trackingId: e.currentTarget.getAttribute("data-tracking-id"),
+                    disabled: e.currentTarget.disabled,
+                  });
+                }}
                 className={cn(
                   "flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
                   "bg-gradient-to-r from-blue-500 to-indigo-600",

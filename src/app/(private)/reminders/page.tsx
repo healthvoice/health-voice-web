@@ -1,20 +1,31 @@
 "use client";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { usePageView } from "@/hooks/usePageView";
 import { cn } from "@/utils/cn";
 import { debounce } from "lodash";
 import { ArrowUpDown, Plus, Search } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GeneralRemindersCards } from "./components/general-reminder-cards";
+import { NewReminderModal } from "./components/new-reminder-modal";
+import { useApiContext } from "@/context/ApiContext";
+import { useTrackingContext } from "@/context/TrackingContext";
+import { Platform } from "@/services/analyticsService";
 
 type SortableColumn = "NAME" | "DATE" | "TIME" | null;
 type SortDirection = "ASC" | "DESC" | null;
 
 export default function Reminders() {
-  const { setRemindersFilters, openNewRecording } = useGeneralContext();
+  const { setRemindersFilters, GetReminders } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
+  const [newReminderModalOpen, setNewReminderModalOpen] = useState(false);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn>(null);
+  const { PostAPI } = useApiContext();
+  const { sessionId } = useTrackingContext();
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Tracking de visualização de tela
+  usePageView();
   const handleStopTyping = (value: string) => {
     setRemindersFilters((prev) => ({
       ...prev,
@@ -29,9 +40,57 @@ export default function Reminders() {
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalQuery(e.target.value);
-    debouncedHandleStopTyping(e.target.value);
+    const value = e.target.value;
+    setLocalQuery(value);
+    debouncedHandleStopTyping(value);
+
+    // Tracking de debounce do campo de busca (500ms conforme guia)
+    if (sessionId) {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      searchDebounceRef.current = setTimeout(async () => {
+        try {
+          if (value && value.length > 0) {
+            await PostAPI(
+              "/analytics/actions",
+              {
+                actionType: "BUTTON_CLICKED",
+                platform: Platform.WEB,
+                metadata: {
+                  field: "reminders-search",
+                  hasValue: true,
+                  valueLength: value.length,
+                },
+              },
+              true
+            );
+
+            if (process.env.NODE_ENV === "development") {
+              console.log("📝 [Tracking] Campo de busca rastreado:", {
+                field: "reminders-search",
+                hasValue: true,
+              });
+            }
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [Tracking] Erro ao rastrear campo de busca:", error);
+          }
+        }
+      }, 500);
+    }
   };
+
+  // Cleanup do debounce
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   const handleSort = (column: SortableColumn) => {
     const nextDirection =
@@ -71,7 +130,8 @@ export default function Reminders() {
               </div>
             </div>
             <button
-              onClick={() => openNewRecording("PERSONAL", "REMINDER")}
+              onClick={() => setNewReminderModalOpen(true)}
+              data-tracking-id="reminders-new-reminder-button"
               className="flex shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-sky-500/40 active:scale-95"
             >
               <Plus className="h-4 w-4" />
@@ -81,6 +141,7 @@ export default function Reminders() {
           <div className="order-2 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1 lg:order-1">
             <button
               onClick={() => handleSort("DATE")}
+              data-tracking-id="reminders-sort-date"
               className={cn(
                 "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all hover:bg-white hover:shadow-sm",
                 sortColumn === "DATE"
@@ -93,6 +154,7 @@ export default function Reminders() {
             </button>
             <button
               onClick={() => handleSort("TIME")}
+              data-tracking-id="reminders-sort-time"
               className={cn(
                 "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all hover:bg-white hover:shadow-sm",
                 sortColumn === "TIME"
@@ -107,6 +169,11 @@ export default function Reminders() {
         </div>
       </div>
       <GeneralRemindersCards />
+      <NewReminderModal
+        open={newReminderModalOpen}
+        onOpenChange={setNewReminderModalOpen}
+        onSuccess={GetReminders}
+      />
     </div>
   );
 }

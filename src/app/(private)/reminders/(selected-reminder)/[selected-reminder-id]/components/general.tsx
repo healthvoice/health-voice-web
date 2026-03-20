@@ -88,17 +88,14 @@ export function General() {
           </div>
         ) : recording?.transcription ? (
           <div className="py-8 text-start">
-            <h3 className="text-primary text-lg font-semibold">
-              Transcrição
-            </h3>
+            <h3 className="text-primary text-lg font-semibold">Transcrição</h3>
             <p className="mt-2 text-sm text-gray-500">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {recording.transcription}
-          </ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {recording.transcription}
+              </ReactMarkdown>
             </p>
           </div>
-         
-        ): (
+        ) : (
           <div className="py-8 text-center">
             <h3 className="text-primary text-lg font-semibold">
               Resumo não disponível
@@ -112,8 +109,7 @@ export function General() {
           </div>
         )}
       </div>
-
-      {/* Gravar para este lembrete */}
+      {/* 
       <div className="flex justify-center">
         <AudioRecorder
           initialReminderId={selectedReminder.id}
@@ -121,7 +117,7 @@ export function General() {
           buttonClassName="flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition hover:shadow-sky-500/40 active:scale-95"
           skipNewRecordingRequest
         />
-      </div>
+      </div> */}
     </div>
   );
 }

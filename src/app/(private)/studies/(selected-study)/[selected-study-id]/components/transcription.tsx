@@ -1,6 +1,6 @@
 "use client";
 
-import { RequestTranscription } from "@/components/ui/request-transcription";
+import { PendingRecordingEmptyState } from "@/components/pending-recording-empty-state";
 import { WaveformAudioPlayer } from "@/components/ui/waveform-audio-player";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
@@ -32,12 +32,16 @@ export function Transcription() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (!selectedRecording) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Container Principal */}
-      <div className="overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-xl shadow-slate-200/50">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="w-full max-w-none">
-          {selectedRecording?.speeches && selectedRecording.speeches.length !== 0 ? (
+          {selectedRecording.speeches && selectedRecording.speeches.length !== 0 ? (
             <div className="flex flex-col">
               {/* Seção Superior com Áudio */}
               <div className="bg-slate-50/50 p-8 pb-10">
@@ -86,7 +90,7 @@ export function Transcription() {
                 ))}
               </div>
             </div>
-          ) : selectedRecording?.transcription ? (
+          ) : selectedRecording.transcription ? (
             <div className="flex flex-col">
               {/* Seção de Áudio Simplificada para Transcrição em Bloco */}
               <div className="bg-slate-50/50 p-8">
@@ -144,17 +148,11 @@ export function Transcription() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-6 py-24 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-[32px] bg-slate-50 text-slate-300">
-                <Mic className="h-10 w-10" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Transcrição não disponível</h2>
-                <p className="mt-2 text-slate-500">Estamos processando ou aguardando o áudio deste estudo.</p>
-              </div>
-              <div className="mt-4 w-full max-w-md">
-                <RequestTranscription />
-              </div>
+            <div className="flex flex-col items-center justify-center p-8">
+              <PendingRecordingEmptyState
+                variant="transcricao"
+                className="min-h-[280px] w-full"
+              />
             </div>
           )}
         </div>

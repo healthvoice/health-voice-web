@@ -1,11 +1,12 @@
+"use client";
 import { cn } from "@/utils/cn";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
 } from "./pagination";
 
 interface Props {
@@ -13,12 +14,14 @@ interface Props {
   currentPage: number;
   setCurrentPage: (page: number) => void;
   className?: string;
+  trackingPrefix?: string;
 }
 export const CustomPagination = ({
   pages,
   currentPage,
   setCurrentPage,
   className,
+  trackingPrefix = "recordings",
 }: Props) => {
   const handleFirst = () => {
     if (currentPage > 1) {
@@ -59,6 +62,7 @@ export const CustomPagination = ({
     <Pagination className={className}>
       <PaginationContent>
         <PaginationPrevious
+          data-tracking-id={`${trackingPrefix}-pagination-previous`}
           onClick={handleFirst}
           className="hover:bg-primary/40 cursor-pointer hover:text-white"
         />
@@ -68,6 +72,7 @@ export const CustomPagination = ({
               <span className="px-1">...</span>
             ) : (
               <PaginationLink
+                data-tracking-id={`${trackingPrefix}-pagination-page-${page}`}
                 className={cn(
                   "hover:bg-primary/40 h-6 w-6 cursor-pointer text-[10px] hover:text-white xl:text-sm",
                   page === currentPage &&
@@ -81,6 +86,7 @@ export const CustomPagination = ({
           </PaginationItem>
         ))}
         <PaginationNext
+          data-tracking-id={`${trackingPrefix}-pagination-next`}
           onClick={handleLast}
           className="hover:bg-primary/40 cursor-pointer hover:text-white"
         />

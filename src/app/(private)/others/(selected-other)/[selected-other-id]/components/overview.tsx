@@ -5,6 +5,7 @@ import { useGeneralContext } from "@/context/GeneralContext";
 import { useApiContext } from "@/context/ApiContext";
 import { DynamicComponentRenderer } from "@/app/(private)/ai-components-preview/components/core/DynamicComponentRenderer";
 import type { AIComponentResponse } from "@/app/(private)/ai-components-preview/types/component-types";
+import { PendingRecordingEmptyState } from "@/components/pending-recording-empty-state";
 import { convertToAIComponentResponse } from "../utils/summary-converter";
 import { OVERVIEW_CONTENT_ID } from "../utils/export-overview-pdf";
 import { Loader2 } from "lucide-react";
@@ -113,21 +114,10 @@ export const Overview = forwardRef<OverviewHandle, OverviewProps>(function Overv
 
   if (!initialSummary) {
     return (
-      <div className="flex w-full flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-12">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Resumo Estruturado não disponível
-          </h3>
-          <p className="mt-2 text-sm text-gray-500">
-            Esta gravação ainda não possui um resumo estruturado gerado pela IA.
-            {selectedRecording.summary && (
-              <span className="mt-4 block">
-                Você pode visualizar o resumo em texto na aba "Geral".
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
+      <PendingRecordingEmptyState
+        variant="insights"
+        className="min-h-[340px] w-full"
+      />
     );
   }
 

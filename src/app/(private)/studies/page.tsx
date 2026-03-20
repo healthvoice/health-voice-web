@@ -1,14 +1,25 @@
 "use client";
 import { useGeneralContext } from "@/context/GeneralContext";
+import { usePageView } from "@/hooks/usePageView";
 import { debounce } from "lodash";
 import { Plus, Search } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { NewPersonalRecordingModal } from "@/app/(private)/recordings/components/new-personal-recording-modal";
 import { GeneralStudiesTable } from "./components/general-studies-table";
+import { useApiContext } from "@/context/ApiContext";
+import { useTrackingContext } from "@/context/TrackingContext";
+import { Platform } from "@/services/analyticsService";
 
 export default function Studies() {
-  const { setRecordingsFilters, openNewRecording } = useGeneralContext();
+  const { setRecordingsFilters, GetRecordings } = useGeneralContext();
   const [localQuery, setLocalQuery] = useState("");
+  const [newStudyModalOpen, setNewStudyModalOpen] = useState(false);
+  const { PostAPI } = useApiContext();
+  const { sessionId } = useTrackingContext();
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Tracking de visualização de tela
+  usePageView();
   const handleStopTyping = (value: string) => {
     setRecordingsFilters((prev) => ({
       ...prev,
@@ -23,9 +34,57 @@ export default function Studies() {
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalQuery(e.target.value);
-    debouncedHandleStopTyping(e.target.value);
+    const value = e.target.value;
+    setLocalQuery(value);
+    debouncedHandleStopTyping(value);
+
+    // Tracking de debounce do campo de busca (500ms conforme guia)
+    if (sessionId) {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      searchDebounceRef.current = setTimeout(async () => {
+        try {
+          if (value && value.length > 0) {
+            await PostAPI(
+              "/analytics/actions",
+              {
+                actionType: "BUTTON_CLICKED",
+                platform: Platform.WEB,
+                metadata: {
+                  field: "studies-search",
+                  hasValue: true,
+                  valueLength: value.length,
+                },
+              },
+              true
+            );
+
+            if (process.env.NODE_ENV === "development") {
+              console.log("📝 [Tracking] Campo de busca rastreado:", {
+                field: "studies-search",
+                hasValue: true,
+              });
+            }
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ [Tracking] Erro ao rastrear campo de busca:", error);
+          }
+        }
+      }, 500);
+    }
   };
+
+  // Cleanup do debounce
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -50,7 +109,8 @@ export default function Studies() {
             </div>
           </div>
           <button
-            onClick={() => openNewRecording("PERSONAL", "STUDY")}
+            onClick={() => setNewStudyModalOpen(true)}
+            data-tracking-id="studies-new-study-button"
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-sky-500/40 active:scale-95"
           >
             <Plus className="h-4 w-4" />
@@ -59,6 +119,12 @@ export default function Studies() {
         </div>
       </div>
       <GeneralStudiesTable />
+      <NewPersonalRecordingModal
+        open={newStudyModalOpen}
+        onOpenChange={setNewStudyModalOpen}
+        variant="STUDY"
+        onSuccess={GetRecordings}
+      />
     </div>
   );
 }

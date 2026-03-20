@@ -2,12 +2,12 @@
 import { AudioRecorder } from "@/components/audio-recorder/audio-recorder";
 import { CustomPagination } from "@/components/ui/blocks/custom-pagination";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/blocks/table";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { cn } from "@/utils/cn";
@@ -36,6 +36,7 @@ export function GeneralRecordingsTable() {
     { key: "NAME", label: "Título da Gravação", sortable: true },
     { key: "CREATED_AT", label: "Data da Gravação", sortable: true },
     { key: "DURATION", label: "Tempo de Gravação", sortable: true },
+    { key: "TRANSCRIPTION_STATUS", label: "Transcrição", sortable: false },
     { key: "ACTIONS", label: "Ações", sortable: false },
   ];
 
@@ -97,14 +98,15 @@ export function GeneralRecordingsTable() {
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <Table wrapperClass="h-full">
           <TableHeader>
-            <TableRow className="gap-1 bg-slate-100 hover:bg-slate-100">
+            <TableRow className="gap-1 bg-gradient-to-br from-sky-500 to-blue-600">
               {GeneralRecordingsColumns.map((column) => (
                 <TableHead
                   key={column.key}
+                  data-tracking-id={`recordings-table-sort-${column.key.toLowerCase()}`}
                   className={cn(
-                    "h-12 text-xs font-semibold tracking-wider text-slate-600 uppercase",
+                    "h-12 text-xs font-semibold tracking-wider text-white/90 uppercase",
                     column.sortable &&
-                      "cursor-pointer select-none hover:text-slate-800",
+                      "cursor-pointer select-none hover:text-white",
                   )}
                   onClick={() =>
                     column.sortable && handleSort(column.key as SortableColumn)

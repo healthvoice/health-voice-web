@@ -44,7 +44,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-[999] min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 shadow-lg",
+      "text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-[10050] min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 shadow-lg",
       className,
     )}
     {...props}
@@ -57,15 +57,16 @@ const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
     side?: "top" | "right" | "bottom" | "left";
+    portalContainer?: HTMLElement | null;
   }
->(({ className, side = "bottom", sideOffset = 4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
+>(({ className, side = "bottom", sideOffset = 4, portalContainer, ...props }, ref) => (
+  <DropdownMenuPrimitive.Portal container={portalContainer ?? undefined}>
     <DropdownMenuPrimitive.Content
       ref={ref}
-      side={side} // <-- aqui você controla pra onde abre
+      side={side}
       sideOffset={sideOffset}
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 border-neutral-2s00 z-[999] min-w-[8rem] overflow-hidden rounded-md border border-neutral-300 bg-white p-1 text-neutral-800 shadow-md",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 border-neutral-2s00 z-[10050] min-w-[8rem] overflow-hidden rounded-md border border-neutral-300 bg-white p-1 text-neutral-800 shadow-md",
         className,
       )}
       {...props}

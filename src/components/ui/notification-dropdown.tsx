@@ -24,20 +24,30 @@ function NotificationItem({
 
   const handleClick = () => {
     if (!notification.opened) onMarkAsRead(notification.id);
-    
+
     if (notification.route) {
       // Converte rota do app para rota do web
-      const webRoute = convertAppRouteToWeb(notification.route, notification.params);
+      const webRoute = convertAppRouteToWeb(
+        notification.route,
+        notification.params,
+      );
+      console.log("webRoute", webRoute);
       router.push(webRoute);
     } else {
       router.push("/notifications");
     }
   };
 
+  const destination = notification.route
+    ? convertAppRouteToWeb(notification.route, notification.params)
+    : "/notifications";
+
   return (
     <button
       type="button"
       onClick={handleClick}
+      data-tracking-id={`sidebar-notification-item-${notification.id}`}
+      data-tracking-destination={destination}
       className={cn(
         "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-100",
         !notification.opened && "bg-primary/5",
@@ -76,6 +86,7 @@ export function NotificationDropdown() {
     markingAllAsRead,
     fetchNotifications,
   } = useNotifications({ poll: true });
+
   const router = useRouter();
 
   return (
@@ -83,6 +94,7 @@ export function NotificationDropdown() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
+          data-tracking-id="sidebar-notifications-open"
           className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
           aria-label="Notificações"
         >
@@ -96,8 +108,9 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
+        side="right"
         sideOffset={8}
-        className="flex w-[360px] max-h-[min(420px,85vh)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-lg"
+        className="z-[10050] flex max-h-[min(420px,85vh)] w-[360px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-lg"
         data-lenis-prevent
         onWheel={(e) => e.stopPropagation()}
       >
@@ -107,7 +120,7 @@ export function NotificationDropdown() {
           </h3>
         </div>
         <div
-          className="max-h-[320px] min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
+          className="max-h-[320px] min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain"
           data-lenis-prevent
           onWheel={(e) => e.stopPropagation()}
         >
@@ -135,22 +148,21 @@ export function NotificationDropdown() {
             </div>
           )}
         </div>
-        <div className="border-t border-neutral-100 p-2 space-y-2">
+        <div className="space-y-2 border-t border-neutral-100 p-2">
           {unreadCount > 0 && (
             <button
               type="button"
               onClick={markAllAsRead}
               disabled={markingAllAsRead}
+              data-tracking-id="sidebar-notifications-mark-all-read"
               className={cn(
-                "flex items-center justify-center gap-2 w-full rounded-lg py-2 text-center text-sm font-medium transition-colors",
+                "flex w-full items-center justify-center gap-2 rounded-lg py-2 text-center text-sm font-medium transition-colors",
                 markingAllAsRead
-                  ? "text-neutral-400 cursor-not-allowed"
-                  : "text-primary hover:bg-primary/10"
+                  ? "cursor-not-allowed text-neutral-400"
+                  : "text-primary hover:bg-primary/10",
               )}
             >
-              {markingAllAsRead && (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
+              {markingAllAsRead && <Loader2 className="h-4 w-4 animate-spin" />}
               {markingAllAsRead ? "Marcando..." : "Marcar todas como lidas"}
             </button>
           )}
@@ -159,6 +171,8 @@ export function NotificationDropdown() {
             onClick={() => {
               router.push("/notifications");
             }}
+            data-tracking-id="sidebar-notifications-see-all"
+            data-tracking-destination="/notifications"
             className="text-primary hover:bg-primary/10 w-full rounded-lg py-2 text-center text-sm font-medium transition-colors"
           >
             Ver todas as notificações

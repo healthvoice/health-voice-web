@@ -24,6 +24,8 @@ interface CreateClientSheetProps {
   isOpen: boolean;
   onClose: () => void;
   className?: string;
+  /** Quando true, aplica classe para ficar clicável durante o tour (Driver.js) */
+  tourActive?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onClientCreated?: (client: any) => void;
 }
@@ -37,6 +39,7 @@ export function CreateClientSheet({
   isOpen,
   onClose,
   className,
+  tourActive,
   onClientCreated,
 }: CreateClientSheetProps) {
   const { PostAPI } = useApiContext();
@@ -155,6 +158,7 @@ export function CreateClientSheet({
         isOpen
           ? "pointer-events-auto opacity-100"
           : "pointer-events-none opacity-0",
+        tourActive && "tour-create-client-sheet",
         className,
       )}
     >
@@ -170,6 +174,7 @@ export function CreateClientSheet({
                 </FormLabel>
                 <FormControl>
                   <Input
+                    data-tour="create-client-name"
                     placeholder="Digite..."
                     type="text"
                     value={field.value || ""}
@@ -217,6 +222,8 @@ export function CreateClientSheet({
               Fechar
             </button>
             <button
+              data-tour="create-client-submit-btn"
+              type="button"
               onClick={() => handleNext(form)}
               disabled={isLoading}
               className={cn(
