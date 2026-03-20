@@ -104,6 +104,8 @@ export function CheckoutFooter({
               href="https://wa.me/5511999999999?text=Olá,%20preciso%20de%20ajuda%20com%20o%20Health%20Voice."
               target="_blank"
               rel="noreferrer"
+              data-tracking-id="plans-checkout-fale-conosco"
+              data-tracking-destination="whatsapp"
               className="text-gray-600 underline transition-colors hover:text-black"
             >
               Fale conosco

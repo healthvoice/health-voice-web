@@ -50,15 +50,25 @@ interface CheckoutSectionProps {
   // Handlers
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onCpfChange: (value: string) => void;
+  onCpfBlur?: () => void;
   onHolderChange: (value: string) => void;
+  onHolderBlur?: () => void;
   onEmailChange: (value: string) => void;
+  onEmailBlur?: () => void;
   onPhoneChange: (value: string) => void;
+  onPhoneBlur?: () => void;
   onCepChange: (value: string) => void;
+  onCepBlur?: () => void;
   onAddressChange: (value: string) => void;
+  onAddressBlur?: () => void;
   onHouseChange: (value: string) => void;
+  onHouseBlur?: () => void;
   onCardNumberChange: (value: string) => void;
+  onCardNumberBlur?: () => void;
   onCvvChange: (value: string) => void;
+  onCvvBlur?: () => void;
   onExpChange: (value: string) => void;
+  onExpBlur?: () => void;
   onCouponChange: (value: string) => void;
   onCheckCoupon: () => void;
   onCopyPixCode: () => void;
@@ -90,15 +100,25 @@ export function CheckoutSection({
   isValidatingCoupon,
   onPaymentMethodChange,
   onCpfChange,
+  onCpfBlur,
   onHolderChange,
+  onHolderBlur,
   onEmailChange,
+  onEmailBlur,
   onPhoneChange,
+  onPhoneBlur,
   onCepChange,
+  onCepBlur,
   onAddressChange,
+  onAddressBlur,
   onHouseChange,
+  onHouseBlur,
   onCardNumberChange,
+  onCardNumberBlur,
   onCvvChange,
+  onCvvBlur,
   onExpChange,
+  onExpBlur,
   onCouponChange,
   onCheckCoupon,
   onCopyPixCode,
@@ -163,6 +183,7 @@ export function CheckoutSection({
                 placeholder="000.000.000-00"
                 value={maskCpfCnpj(cpf)}
                 onChange={(t) => onCpfChange(onlyDigits(t))}
+                onBlur={onCpfBlur}
                 maxLength={18}
               />
               <Field
@@ -170,12 +191,14 @@ export function CheckoutSection({
                 placeholder="Nome do titular"
                 value={holder}
                 onChange={onHolderChange}
+                onBlur={onHolderBlur}
               />
               <Field
                 label="E-mail"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={onEmailChange}
+                onBlur={onEmailBlur}
                 type="email"
               />
               <Field
@@ -183,6 +206,7 @@ export function CheckoutSection({
                 placeholder="(00) 00000-0000"
                 value={maskPhoneBR(phone)}
                 onChange={(t) => onPhoneChange(onlyDigits(t))}
+                onBlur={onPhoneBlur}
                 maxLength={16}
               />
             </div>
@@ -197,6 +221,7 @@ export function CheckoutSection({
                   placeholder="00000-000"
                   value={maskCep(cep)}
                   onChange={(t) => onCepChange(onlyDigits(t))}
+                  onBlur={onCepBlur}
                   maxLength={9}
                   className="col-span-2"
                 />
@@ -205,6 +230,7 @@ export function CheckoutSection({
                   placeholder="123"
                   value={house}
                   onChange={onHouseChange}
+                  onBlur={onHouseBlur}
                 />
               </div>
               <Field
@@ -212,6 +238,7 @@ export function CheckoutSection({
                 placeholder="Rua, bairro, cidade"
                 value={address}
                 onChange={onAddressChange}
+                onBlur={onAddressBlur}
               />
             </SectionCard>
           )}
@@ -225,6 +252,7 @@ export function CheckoutSection({
                   placeholder="0000 0000 0000 0000"
                   value={maskCardNumber(cardNumber)}
                   onChange={onCardNumberChange}
+                  onBlur={onCardNumberBlur}
                   maxLength={19}
                 />
                 <div className="grid grid-cols-2 gap-3">
@@ -233,6 +261,7 @@ export function CheckoutSection({
                     placeholder="MM/AA"
                     value={maskExpiry(exp)}
                     onChange={onExpChange}
+                    onBlur={onExpBlur}
                     maxLength={5}
                   />
                   <Field
@@ -240,6 +269,7 @@ export function CheckoutSection({
                     placeholder="123"
                     value={onlyDigits(cvv).slice(0, 4)}
                     onChange={onCvvChange}
+                    onBlur={onCvvBlur}
                     type="tel"
                     maxLength={4}
                   />

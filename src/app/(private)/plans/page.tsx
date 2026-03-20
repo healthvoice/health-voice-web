@@ -2,6 +2,9 @@
 
 import { useApiContext } from "@/context/ApiContext";
 import { useSession } from "@/context/auth";
+import { useActionTracking } from "@/hooks/useActionTracking";
+import { useButtonTracking } from "@/hooks/useButtonTracking";
+import { usePageView } from "@/hooks/usePageView";
 import { AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +28,13 @@ export default function PlansPage() {
   const { profile, setProfile, isTrial, handleGetAvailableRecording } =
     useSession();
   const router = useRouter();
+  const trackAction = useActionTracking();
+
+  // ── Tracking de visualização de página
+  usePageView("plans-page");
+  
+  // ── Tracking de botões (incluindo "Fale conosco")
+  useButtonTracking();
 
   // ── View / navigation state
   const [viewState, setViewState] = useState<ViewState>("plans");
@@ -32,6 +42,10 @@ export default function PlansPage() {
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("MONTHLY");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  
+  // ── Refs para tracking de abandono
+  const hasTrackedAbandonment = useRef(false);
+  const checkoutStartTime = useRef<number | null>(null);
 
   // ── Payment method (PIX como padrão)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
@@ -85,6 +99,14 @@ export default function PlansPage() {
     fetchPlans();
   }, [fetchPlans]);
 
+  // ── Tracking: CHECKOUT_OPENED quando acessa a página
+  useEffect(() => {
+    trackAction({
+      actionType: "CHECKOUT_OPENED",
+      metadata: {},
+    });
+  }, [trackAction]);
+
   // ── Pre-fill form from profile
   useEffect(() => {
     if (profile) {
@@ -119,6 +141,47 @@ export default function PlansPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cep]);
 
+  // ── Tracking de abandono (beforeunload, visibilitychange)
+  useEffect(() => {
+    if (viewState !== "checkout") return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasTrackedAbandonment.current) {
+        hasTrackedAbandonment.current = true;
+        const timeSpent = checkoutStartTime.current
+          ? Math.floor((Date.now() - checkoutStartTime.current) / 1000)
+          : 0;
+        
+        // Usar sendBeacon para garantir que o tracking seja enviado mesmo ao fechar a aba
+        trackAction({
+          actionType: "CHECKOUT_FORM_ABANDONED",
+          metadata: {
+            reason: "page_unload",
+            planId: selectedPlan,
+            billingCycle,
+            paymentMethod,
+            timeSpent,
+          },
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && !hasTrackedAbandonment.current) {
+        // Usuário mudou de aba - não rastrear como abandono ainda
+        // Mas podemos rastrear se ficar muito tempo
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [viewState, selectedPlan, billingCycle, paymentMethod, trackAction]);
+
   // ── PIX polling
   useEffect(() => {
     if (!pixGenerated || !pixSignatureId || isFree) return;
@@ -137,6 +200,18 @@ export default function PlansPage() {
           }
           await handleGetAvailableRecording();
           setViewState("success");
+          
+          // ── Tracking: CHECKOUT_PAYMENT_SUCCESS (PIX)
+          trackAction({
+            actionType: "CHECKOUT_PAYMENT_SUCCESS",
+            metadata: {
+              planId: selectedPlan,
+              billingCycle,
+              paymentMethod: "pix",
+              amount: finalPrice,
+              couponCode: coupon.trim() || undefined,
+            },
+          });
           return;
         }
       } catch {
@@ -267,6 +342,18 @@ export default function PlansPage() {
       if ([200, 201].includes(resp.status)) {
         await handleGetAvailableRecording();
         setViewState("success");
+        
+        // ── Tracking: CHECKOUT_PAYMENT_SUCCESS (plano gratuito)
+        trackAction({
+          actionType: "CHECKOUT_PAYMENT_SUCCESS",
+          metadata: {
+            planId: selectedPlan,
+            billingCycle,
+            paymentMethod: "free",
+            amount: 0,
+            couponCode: finalCoupon || undefined,
+          },
+        });
       }
       return resp;
     }
@@ -308,6 +395,30 @@ export default function PlansPage() {
     if ([200, 201].includes(resp.status)) {
       await handleGetAvailableRecording();
       setViewState("success");
+      
+      // ── Tracking: CHECKOUT_PAYMENT_SUCCESS (cartão)
+      trackAction({
+        actionType: "CHECKOUT_PAYMENT_SUCCESS",
+        metadata: {
+          planId: selectedPlan,
+          billingCycle,
+          paymentMethod: "card",
+          amount: finalPrice,
+          couponCode: finalCoupon || undefined,
+        },
+      });
+    } else {
+      // ── Tracking: CHECKOUT_PAYMENT_FAILED
+      trackAction({
+        actionType: "CHECKOUT_PAYMENT_FAILED",
+        metadata: {
+          planId: selectedPlan,
+          billingCycle,
+          paymentMethod: "card",
+          amount: finalPrice,
+          error: resp.body?.message || "Erro desconhecido",
+        },
+      });
     }
     return resp;
   }
@@ -334,6 +445,17 @@ export default function PlansPage() {
       setPixEncodedImage(resp.body.payment.encodedImage || null);
       setPixSignatureId(resp.body.signatureId || null);
       setPixGenerated(true);
+      
+      // ── Tracking: CHECKOUT_PIX_GENERATED
+      trackAction({
+        actionType: "CHECKOUT_PIX_GENERATED",
+        metadata: {
+          planId: selectedPlan,
+          billingCycle,
+          amount: finalPrice,
+          couponCode: finalCoupon || undefined,
+        },
+      });
     }
     return resp;
   }
@@ -352,6 +474,18 @@ export default function PlansPage() {
     try {
       await updateProfileFromForm();
 
+      // ── Tracking: CHECKOUT_PAYMENT_ATTEMPTED
+      trackAction({
+        actionType: "CHECKOUT_PAYMENT_ATTEMPTED",
+        metadata: {
+          planId: selectedPlan,
+          billingCycle,
+          paymentMethod,
+          amount: finalPrice,
+          couponCode: coupon.trim() || undefined,
+        },
+      });
+
       if (paymentMethod === "pix" && !isFree) {
         const resp = await handleGeneratePix();
         if (![200, 201].includes(resp.status)) {
@@ -360,6 +494,18 @@ export default function PlansPage() {
             resp.body?.errors?.[0]?.description ||
             "Não foi possível gerar o PIX. Tente novamente.";
           toast.error(msg);
+          
+          // ── Tracking: CHECKOUT_PAYMENT_FAILED
+          trackAction({
+            actionType: "CHECKOUT_PAYMENT_FAILED",
+            metadata: {
+              planId: selectedPlan,
+              billingCycle,
+              paymentMethod: "pix",
+              amount: finalPrice,
+              error: msg,
+            },
+          });
         }
         return;
       }
@@ -386,6 +532,15 @@ export default function PlansPage() {
       setPixCopied(true);
       toast.success("Código PIX copiado!");
       setTimeout(() => setPixCopied(false), 3000);
+      
+      // ── Tracking: CHECKOUT_PIX_COPIED
+      trackAction({
+        actionType: "CHECKOUT_PIX_COPIED",
+        metadata: {
+          planId: selectedPlan,
+          billingCycle,
+        },
+      });
     } catch {
       toast.error("Não foi possível copiar.");
     }
@@ -405,15 +560,46 @@ export default function PlansPage() {
             ? "100% de desconto concedido!"
             : `${discount}% de desconto concedido!`,
         );
+        
+        // ── Tracking: CHECKOUT_COUPON_APPLIED
+        trackAction({
+          actionType: "CHECKOUT_COUPON_APPLIED",
+          metadata: {
+            couponCode: code,
+            discountPercent: discount,
+            planId: selectedPlan,
+            billingCycle,
+          },
+        });
       } else {
         setDiscountPercent(0);
         toast.error(
           String(resp.body?.message || resp.body || "Cupom não encontrado."),
         );
+        
+        // ── Tracking: CHECKOUT_COUPON_FAILED
+        trackAction({
+          actionType: "CHECKOUT_COUPON_FAILED",
+          metadata: {
+            couponCode: code,
+            planId: selectedPlan,
+            billingCycle,
+          },
+        });
       }
     } catch {
       setDiscountPercent(0);
       toast.error("Erro ao validar cupom. Tente novamente.");
+      
+      // ── Tracking: CHECKOUT_COUPON_FAILED
+      trackAction({
+        actionType: "CHECKOUT_COUPON_FAILED",
+        metadata: {
+          couponCode: code,
+          planId: selectedPlan,
+          billingCycle,
+        },
+      });
     } finally {
       setIsValidatingCoupon(false);
     }
@@ -426,10 +612,39 @@ export default function PlansPage() {
     setPixPayload("");
     setPixEncodedImage(null);
     setPixSignatureId(null);
+    
+    // ── Tracking: CHECKOUT_PAYMENT_TAB_CHANGED
+    trackAction({
+      actionType: "CHECKOUT_PAYMENT_TAB_CHANGED",
+      metadata: {
+        paymentMethod: m,
+        planId: selectedPlan,
+        billingCycle,
+      },
+    });
   }
 
   function handleBack() {
     if (viewState === "success") return;
+    
+    // ── Tracking: CHECKOUT_FORM_ABANDONED quando volta
+    if (viewState === "checkout" && !hasTrackedAbandonment.current) {
+      hasTrackedAbandonment.current = true;
+      const timeSpent = checkoutStartTime.current
+        ? Math.floor((Date.now() - checkoutStartTime.current) / 1000)
+        : 0;
+      trackAction({
+        actionType: "CHECKOUT_FORM_ABANDONED",
+        metadata: {
+          reason: "back_button",
+          planId: selectedPlan,
+          billingCycle,
+          paymentMethod,
+          timeSpent,
+        },
+      });
+    }
+    
     if (pixGenerated) {
       setPixGenerated(false);
     } else if (viewState === "checkout") {
@@ -482,9 +697,45 @@ export default function PlansPage() {
             loadingPlans={loadingPlans}
             billingCycle={billingCycle}
             selectedPlan={selectedPlan}
-            onBillingCycleChange={setBillingCycle}
-            onPlanSelect={setSelectedPlan}
-            onContinue={() => selectedPlan && setViewState("checkout")}
+            onBillingCycleChange={(cycle) => {
+              setBillingCycle(cycle);
+              // ── Tracking: CHECKOUT_BILLING_CYCLE_CHANGED
+              trackAction({
+                actionType: "CHECKOUT_BILLING_CYCLE_CHANGED",
+                metadata: {
+                  billingCycle: cycle,
+                  planId: selectedPlan,
+                },
+              });
+            }}
+            onPlanSelect={(planId) => {
+              setSelectedPlan(planId);
+              // ── Tracking: CHECKOUT_PLAN_SELECTED
+              const plan = plans.find((p) => p.id === planId);
+              trackAction({
+                actionType: "CHECKOUT_PLAN_SELECTED",
+                metadata: {
+                  planId,
+                  planName: plan?.name,
+                  billingCycle,
+                },
+              });
+            }}
+            onContinue={() => {
+              if (selectedPlan) {
+                // ── Tracking: CHECKOUT_CONTINUED_TO_PAYMENT
+                trackAction({
+                  actionType: "CHECKOUT_CONTINUED_TO_PAYMENT",
+                  metadata: {
+                    planId: selectedPlan,
+                    billingCycle,
+                  },
+                });
+                checkoutStartTime.current = Date.now();
+                hasTrackedAbandonment.current = false;
+                setViewState("checkout");
+              }
+            }}
           />
         )}
 
@@ -516,15 +767,125 @@ export default function PlansPage() {
             isValidatingCoupon={isValidatingCoupon}
             onPaymentMethodChange={handleChangePaymentMethod}
             onCpfChange={setCpf}
+            onCpfBlur={() => {
+              if (cpf.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "cpf",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onHolderChange={setHolder}
+            onHolderBlur={() => {
+              if (holder.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "holder",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onEmailChange={setEmail}
+            onEmailBlur={() => {
+              if (email.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "email",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onPhoneChange={setPhone}
+            onPhoneBlur={() => {
+              if (phone.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "phone",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onCepChange={setCep}
+            onCepBlur={() => {
+              if (cep.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "cep",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onAddressChange={setAddress}
+            onAddressBlur={() => {
+              if (address.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "address",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onHouseChange={setHouse}
+            onHouseBlur={() => {
+              if (house.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "house",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onCardNumberChange={setCardNumber}
+            onCardNumberBlur={() => {
+              if (cardNumber.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "cardNumber",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onCvvChange={setCvv}
+            onCvvBlur={() => {
+              if (cvv.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "cvv",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onExpChange={setExp}
+            onExpBlur={() => {
+              if (exp.trim()) {
+                trackAction({
+                  actionType: "FORM_FIELD_DEBOUNCED",
+                  metadata: {
+                    field: "exp",
+                    hasValue: true,
+                  },
+                });
+              }
+            }}
             onCouponChange={setCoupon}
             onCheckCoupon={handleCheckCoupon}
             onCopyPixCode={handleCopyPixCode}

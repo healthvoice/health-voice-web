@@ -51,6 +51,7 @@ export function Field({
   placeholder,
   value,
   onChange,
+  onBlur,
   type = "text",
   maxLength,
   disabled = false,
@@ -61,6 +62,7 @@ export function Field({
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   type?: string;
   maxLength?: number;
   disabled?: boolean;
@@ -90,7 +92,10 @@ export function Field({
           maxLength={maxLength}
           disabled={disabled}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false);
+            onBlur?.();
+          }}
           className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-300 outline-none"
         />
         {rightElement}
