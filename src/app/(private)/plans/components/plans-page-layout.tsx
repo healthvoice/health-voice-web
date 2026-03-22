@@ -1,21 +1,13 @@
 "use client";
 
 import { cn } from "@/utils/cn";
-import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronLeft, Clock, Crown, Loader2, Rocket, Shield, Sparkles, Zap } from "lucide-react";
+import { motion } from "framer-motion";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import Image from "next/image";
-import type { BillingCycle, PaymentMethod, Plan, ViewState } from "./types";
-import { fmtBRL, getPlanCreditPrice, getPlanPixPrice, getRecordLabel } from "./utils";
+import type { ViewState } from "./types";
 
 interface PlansPageLayoutProps {
   viewState: ViewState;
-  isTrial: boolean;
-  selectedPlan: Plan | null;
-  billingCycle: BillingCycle;
-  paymentMethod: PaymentMethod;
-  discountPercent: number;
-  finalPrice: number;
-  isFree: boolean;
   onBack: () => void;
   children: React.ReactNode;
   submitLoading?: boolean;
@@ -23,13 +15,6 @@ interface PlansPageLayoutProps {
 
 export function PlansPageLayout({
   viewState,
-  isTrial,
-  selectedPlan,
-  billingCycle,
-  paymentMethod,
-  discountPercent,
-  finalPrice,
-  isFree,
   onBack,
   children,
   submitLoading = false,
@@ -68,11 +53,12 @@ export function PlansPageLayout({
         </div>
 
         {/* ═══ LEFT — Blue panel ═══ */}
-        <div
-          className={cn(
-            "relative hidden h-screen shrink-0 flex-col overflow-hidden transition-[width] duration-500 ease-out lg:sticky lg:top-0 lg:flex",
-            isSuccess ? "lg:w-0 lg:min-w-0" : "lg:w-[45%]",
-          )}
+        <motion.div
+          animate={{
+            width: isSuccess ? "0%" : isCheckout ? "45%" : "33.333%",
+          }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="relative hidden h-screen shrink-0 flex-col overflow-hidden lg:sticky lg:top-0 lg:flex"
           style={{
             background: "linear-gradient(145deg, #0d78ec 0%, #0a5fc4 40%, #1e3a8a 100%)",
           }}
@@ -153,220 +139,7 @@ export function PlansPageLayout({
             />
           </div>
 
-          {/* Left content */}
-          <div className="relative z-10 flex h-full flex-col justify-center gap-6 p-10">
-            {!isCheckout && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="rounded-2xl border border-white/20 bg-white/[0.10] p-6 backdrop-blur-xl"
-              >
-                <div className="mb-5 flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
-                    <Rocket className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white">
-                      {isTrial
-                        ? "Desbloqueie o potencial completo"
-                        : "Escolha o plano ideal"}
-                    </h2>
-                    <p className="text-sm text-white/95">
-                      Transcrições inteligentes com IA
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  {[
-                    "Prontuários automáticos com IA",
-                    "Suporte prioritário dedicado",
-                  ].map((feat) => (
-                    <div
-                      key={feat}
-                      className="flex items-center gap-2.5 text-sm text-white"
-                    >
-                      <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-                      {feat}
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Selected plan info */}
-            <AnimatePresence mode="wait">
-              {selectedPlan && isCheckout && (
-                <motion.div
-                  key="plan-image"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden rounded-2xl border border-white/20 bg-white/[0.10] backdrop-blur-xl"
-                >
-                  <div className="relative aspect-[4/3] w-full">
-                    <Image
-                      src="/static/login.png"
-                      alt={selectedPlan.name}
-                      fill
-                      className="object-cover object-top"
-                      sizes="(max-width: 1024px) 100vw, 45vw"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-blue-950/80 via-blue-950/20 to-transparent" />
-                    <div className="absolute right-4 bottom-4 left-4">
-                      <p className="text-xs font-semibold tracking-widest text-sky-300 uppercase">
-                        Plano selecionado
-                      </p>
-                      <h3 className="text-xl font-bold text-white">
-                        {selectedPlan.name}
-                      </h3>
-                      <p className="mt-1 text-sm font-medium text-white/70">
-                        {billingCycle === "YEARLY" ? "Cobrança anual" : "Cobrança mensal"}
-                        {" · "}
-                        {isFree
-                          ? "GRÁTIS"
-                          : fmtBRL(
-                              discountPercent > 0
-                                ? finalPrice
-                                : paymentMethod === "pix"
-                                  ? getPlanPixPrice(selectedPlan, billingCycle)
-                                  : getPlanCreditPrice(selectedPlan, billingCycle),
-                            )}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-              {selectedPlan && !isCheckout && (
-                <motion.div
-                  key={selectedPlan.id + billingCycle + paymentMethod}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.35 }}
-                  className="overflow-hidden rounded-2xl border border-white/20 bg-white/[0.10] backdrop-blur-xl"
-                >
-                      <div className="flex items-center gap-4 border-b border-white/15 px-7 py-5">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
-                          <Crown className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold tracking-widest text-white/70 uppercase">
-                            Plano selecionado
-                          </p>
-                          <h3 className="text-xl font-bold text-white">
-                            {selectedPlan.name}
-                          </h3>
-                        </div>
-                      </div>
-                      <div className="px-7 pt-6 pb-5">
-                        {billingCycle === "YEARLY" ? (
-                          <>
-                            <span className="text-sm font-semibold text-white/60">
-                              12x de
-                            </span>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-4xl font-extrabold tracking-tight text-white">
-                                {fmtBRL(
-                                  (paymentMethod === "pix"
-                                    ? getPlanPixPrice(selectedPlan, billingCycle)
-                                    : getPlanCreditPrice(selectedPlan, billingCycle)) / 12,
-                                )}
-                              </span>
-                              <span className="text-base font-medium text-white/60">
-                                /mês
-                              </span>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-4xl font-extrabold tracking-tight text-white">
-                              {isFree
-                                ? "GRÁTIS"
-                                : discountPercent > 0
-                                  ? fmtBRL(
-                                      (paymentMethod === "pix"
-                                        ? getPlanPixPrice(selectedPlan, billingCycle)
-                                        : getPlanCreditPrice(selectedPlan, billingCycle)) *
-                                        (1 - discountPercent / 100),
-                                    )
-                                  : fmtBRL(
-                                      paymentMethod === "pix"
-                                        ? getPlanPixPrice(selectedPlan, billingCycle)
-                                        : getPlanCreditPrice(selectedPlan, billingCycle),
-                                    )}
-                            </span>
-                            {!isFree && (
-                              <span className="text-base font-medium text-white/60">
-                                /mês
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {discountPercent > 0 && !isFree && (
-                          <p className="mt-1.5 text-sm font-medium text-emerald-400">
-                            {discountPercent}% de desconto aplicado
-                          </p>
-                        )}
-                      </div>
-                      <div className="mx-7 space-y-0 divide-y divide-white/[0.06]">
-                        <div className="flex items-center justify-between py-3.5">
-                          <div className="flex items-center gap-3">
-                            <Clock className="h-4 w-4 text-white/50" />
-                            <span className="text-[15px] text-white/80">Ciclo</span>
-                          </div>
-                          <span className="text-[15px] font-semibold text-white">
-                            {billingCycle === "YEARLY" ? "Anual" : "Mensal"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between py-3.5">
-                          <div className="flex items-center gap-3">
-                            <Sparkles className="h-4 w-4 text-white/50" />
-                            <span className="text-[15px] text-white/80">Gravação</span>
-                          </div>
-                          <span className="text-[15px] font-semibold text-white">
-                            {getRecordLabel(selectedPlan)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex items-center gap-5 border-t border-white/10 px-7 py-4">
-                        <span className="flex items-center gap-2 text-xs font-medium text-white/70">
-                          <Shield className="h-3.5 w-3.5" /> Seguro
-                        </span>
-                        <span className="flex items-center gap-2 text-xs font-medium text-white/70">
-                          <Zap className="h-3.5 w-3.5" /> Imediato
-                        </span>
-                        <span className="flex items-center gap-2 text-xs font-medium text-white/70">
-                          <Clock className="h-3.5 w-3.5" /> Cancele quando quiser
-                        </span>
-                      </div>
-                    </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Social proof */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
-              className="flex items-center gap-4 rounded-xl border border-white/20 bg-white/[0.10] px-5 py-3.5 backdrop-blur-md"
-            >
-              <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className="text-sm text-[#F7CE46]">
-                    ★
-                  </span>
-                ))}
-              </div>
-              <span className="text-sm font-bold text-white">4.9</span>
-              <div className="h-4 w-px bg-white/20" />
-              <span className="text-sm text-white/90">
-                +5.000 profissionais de saúde confiam
-              </span>
-            </motion.div>
-          </div>
-        </div>
+        </motion.div>
 
         {/* ═══ RIGHT — Content panel ═══ */}
         <div className="relative flex min-h-screen flex-1 flex-col bg-[#f7f9ff]">
@@ -417,9 +190,8 @@ export function PlansPageLayout({
           <div className="relative z-10 flex flex-col">
             <div
               className={cn(
-                "mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 sm:px-8",
-                isCheckout && "pb-40",
-                !isCheckout && "min-h-screen",
+                "mx-auto flex w-full flex-1 flex-col px-6 sm:px-8",
+                isCheckout ? "max-w-2xl pb-40" : "max-w-6xl min-h-screen",
               )}
             >
               {children}

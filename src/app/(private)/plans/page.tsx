@@ -678,13 +678,6 @@ export default function PlansPage() {
   return (
     <PlansPageLayout
       viewState={viewState}
-      isTrial={isTrial}
-      selectedPlan={selectedPlanData}
-      billingCycle={billingCycle}
-      paymentMethod={paymentMethod}
-      discountPercent={discountPercent}
-      finalPrice={finalPrice}
-      isFree={isFree}
       onBack={handleBack}
       submitLoading={submitLoading}
     >
