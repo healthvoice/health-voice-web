@@ -55,25 +55,22 @@ export function PlansPageLayout({
         {/* ═══ LEFT — Blue panel ═══ */}
         <motion.div
           animate={{
-            width: isSuccess ? "0%" : isCheckout ? "45%" : "33.333%",
+            width: isSuccess ? "0%" : isCheckout ? "50%" : "33.333%",
           }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="relative hidden h-screen shrink-0 flex-col overflow-hidden lg:sticky lg:top-0 lg:flex"
-          style={{
-            background: "linear-gradient(145deg, #0d78ec 0%, #0a5fc4 40%, #1e3a8a 100%)",
-          }}
+          className="relative hidden h-screen shrink-0 flex-col overflow-hidden bg-black lg:sticky lg:top-0 lg:flex"
         >
-          {/* Background gradients */}
-          <div className="absolute inset-0 z-0">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(ellipse 80% 60% at 30% 20%, rgba(255,255,255,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 80% at 70% 80%, rgba(14,74,156,0.5) 0%, transparent 50%)",
-              }}
-            />
-          </div>
-          <div className="absolute inset-0 z-[1] bg-blue-950/20" />
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 z-0 h-full w-full object-cover"
+          >
+            <source src="/checkout.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 z-[1] bg-black/25" />
+          <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/40 via-transparent to-black/15" />
 
           {/* Header */}
           <div
