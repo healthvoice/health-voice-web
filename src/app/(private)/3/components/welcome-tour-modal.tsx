@@ -3,6 +3,7 @@
 import { cn } from "@/utils/cn";
 import { CheckCircle2, Mic, Sparkles } from "lucide-react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 
 interface WelcomeTourModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface WelcomeTourModalProps {
 export function WelcomeTourModal({ isOpen, onStart }: WelcomeTourModalProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-[6px] p-4 animate-in fade-in duration-300">
       <div className="relative w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl flex flex-col md:flex-row min-h-[480px] animate-in zoom-in-95 slide-in-from-bottom-5 duration-500">
         {/* Left: gradient + conteúdo (como completar cadastro) */}
@@ -85,6 +86,7 @@ export function WelcomeTourModal({ isOpen, onStart }: WelcomeTourModalProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

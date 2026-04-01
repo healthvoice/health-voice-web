@@ -109,7 +109,9 @@ function SidebarUpgradeBanner({
 }: {
   router: ReturnType<typeof useRouter>;
 }) {
-  const { isTrial, availableRecording, totalRecording, profile } = useSession();
+  const { isTrial, availableRecording, totalRecording, profile, availabilityLoaded } = useSession();
+
+  if (!availabilityLoaded) return null;
 
   const isExpired =
     !isTrial && availableRecording === 0 && totalRecording === 0;
