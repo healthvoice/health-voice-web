@@ -18,7 +18,6 @@ import { startSession } from "@/services/analyticsService";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CompleteRegistrationModal } from "./components/complete-registration-modal";
 import { QuickActions } from "./components/quick-actions";
 import { RecentClients } from "./components/recent-clients";
 import { RecentRecordingsList } from "./components/recent-recordings-list";
@@ -242,7 +241,6 @@ export default function HomePage() {
         onOpenChange={setNewPersonalModalOpen}
         onSuccess={GetRecordings}
       />
-      <CompleteRegistrationModal />
       <TrialAppModal onOpenChange={setTrialAppModalOpen} />
       <WelcomeTourModal
         isOpen={showWelcomeTourModal}

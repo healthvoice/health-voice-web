@@ -11,7 +11,6 @@ import { Activity, Clock, Loader2, Mic, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange } from "react-day-picker";
-import { CompleteRegistrationModal } from "./components/complete-registration-modal";
 import { ContentPanel } from "./components/content-panel";
 import { DateRangePicker } from "./components/date-range-picker";
 import { KPICard } from "./components/kpi-card";
@@ -318,7 +317,6 @@ export default function HomePage() {
         <ContentPanel className="min-h-[320px] lg:col-span-2" />
       </div>
 
-      <CompleteRegistrationModal />
       <NewReminderModal
         open={newReminderModalOpen}
         onOpenChange={setNewReminderModalOpen}
