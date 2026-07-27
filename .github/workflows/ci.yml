@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main, new-voice]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3333
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Instalar dependências
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck
+        run: yarn tsc --noEmit
+
+      - name: Build
+        run: yarn build
