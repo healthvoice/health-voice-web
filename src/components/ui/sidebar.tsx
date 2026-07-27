@@ -1,6 +1,7 @@
 "use client";
 
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useClinic } from "@/context/clinicContext";
 import { useSession } from "@/context/auth";
 import { useSidebar } from "@/store";
 import { cn } from "@/utils/cn";
@@ -20,6 +21,7 @@ import {
 import {
   AnalyticsIcon,
   ChatBusinessIcon,
+  ClinicIcon,
   ContactsIcon,
   HomeIcon,
   LastRecordIcon,
@@ -215,6 +217,7 @@ export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { clearSession, profile } = useSession();
+  const { isController } = useClinic();
   const { selectedClient, selectedRecording } = useGeneralContext();
   const [appUrl, setAppUrl] = useState<string>("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -417,6 +420,18 @@ export function Sidebar() {
                 />
               );
             })}
+
+            {/* Área da Clínica: só para a direção. Ocultar é conveniência de
+                navegação — o acesso real é garantido pela API. */}
+            {isController && (
+              <NavItem
+                href="/clinic"
+                label="Clínica"
+                icon={ClinicIcon}
+                isActive={isActive("/clinic")}
+                onClick={() => handleNavClick("/clinic")}
+              />
+            )}
           </nav>
 
           {/* Divider */}

@@ -21,6 +21,12 @@ interface ApiContextProps {
     data: unknown,
     auth: boolean,
   ) => Promise<{ status: number; body: any }>;
+  /** Endpoints /corporate/* usam PATCH para atualização parcial. */
+  PatchAPI: (
+    url: string,
+    data: unknown,
+    auth: boolean,
+  ) => Promise<{ status: number; body: any }>;
   DeleteAPI: (
     url: string,
     auth: boolean,
@@ -215,6 +221,23 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
     return connect;
   }
 
+  async function PatchAPI(url: string, data: unknown, auth: boolean) {
+    const connect = await api
+      .patch(url, data, {
+        headers: buildHeaders(auth),
+        _requiresAuth: auth,
+      } as any)
+      .then(({ data }) => ({ status: 200, body: data }))
+      .catch((err) => {
+        console.error(`❌ API Error [PATCH] ${url}`, err.response?.data || err);
+        return {
+          status: err.response?.status || 500,
+          body: err.response?.data || "Erro desconhecido",
+        };
+      });
+    return connect;
+  }
+
   async function DeleteAPI(url: string, auth: boolean) {
     const connect = await api
       .delete(url, {
@@ -236,7 +259,7 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
   }
 
   return (
-    <ApiContext.Provider value={{ PostAPI, GetAPI, PutAPI, DeleteAPI }}>
+    <ApiContext.Provider value={{ PostAPI, GetAPI, PutAPI, PatchAPI, DeleteAPI }}>
       {children}
     </ApiContext.Provider>
   );

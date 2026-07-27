@@ -24,6 +24,10 @@ export interface User {
   addressNumber?: string | null;
   postalCode?: string | null;
   mobilePhone?: string | null;
+  /** Papel na clínica — COMPANY_ADMIN é o diretor/administrador. */
+  role?: "ADMIN" | "USER" | "COMPANY_ADMIN";
+  /** Clínica à qual o profissional pertence (null = conta B2C legada). */
+  companyId?: string | null;
 }
 
 interface SessionContextValue {

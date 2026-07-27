@@ -694,3 +694,39 @@ export const ItemsIcon: React.FC<IconProps> = ({ className, ...props }) => (
     />
   </svg>
 );
+
+/** Área da Clínica (H1) — prédio com cruz, no mesmo traço dos demais ícones. */
+export const ClinicIcon: React.FC<IconProps> = ({ className, ...props }) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn("h-4 w-4", className)}
+    {...props}
+  >
+    <path
+      opacity="0.4"
+      d="M3 21H21M4.5 21V6.5C4.5 5.11929 5.61929 4 7 4H17C18.3807 4 19.5 5.11929 19.5 6.5V21"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M12 8V13M9.5 10.5H14.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M9.5 21V17.5C9.5 16.9477 9.94772 16.5 10.5 16.5H13.5C14.0523 16.5 14.5 16.9477 14.5 17.5V21"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
