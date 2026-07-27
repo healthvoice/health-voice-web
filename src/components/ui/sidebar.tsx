@@ -1,11 +1,12 @@
 "use client";
 
 import { useGeneralContext } from "@/context/GeneralContext";
+import { useApresentacao } from "@/context/apresentacaoContext";
 import { useClinic } from "@/context/clinicContext";
 import { useSession } from "@/context/auth";
 import { useSidebar } from "@/store";
 import { cn } from "@/utils/cn";
-import { ChevronDown, ChevronRight, Crown, Rocket, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, Crown, Rocket, Zap, Eye, EyeOff } from "lucide-react";
 import moment from "moment";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -220,6 +221,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { clearSession, profile } = useSession();
   const { isController } = useClinic();
+  const { modoApresentacao, alternar } = useApresentacao();
   const { selectedClient, selectedRecording } = useGeneralContext();
   const [appUrl, setAppUrl] = useState<string>("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -506,6 +508,25 @@ export function Sidebar() {
                       <SettingsIcon className="h-4 w-4 text-neutral-400" />
                       Gerenciar Perfil
                     </DropdownMenuItem>
+                    {isController && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          alternar();
+                        }}
+                        data-tracking-id="sidebar-profile-modo-apresentacao"
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50 focus:bg-neutral-50"
+                      >
+                        {modoApresentacao ? (
+                          <EyeOff className="h-4 w-4 text-neutral-400" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-neutral-400" />
+                        )}
+                        {modoApresentacao
+                          ? "Mostrar dados sensíveis"
+                          : "Ocultar dados sensíveis"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       onSelect={() => window.open(appUrl, "_blank")}
                       data-tracking-id="sidebar-profile-download-app"

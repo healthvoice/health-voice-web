@@ -5,6 +5,7 @@ import MobileAppBlocker from "@/components/mobile";
 import { CompleteRegistrationModal } from "@/components/profile/complete-registration-modal";
 import { MobileTopBar } from "@/components/ui/mobile-top-bar";
 import { Sidebar } from "@/components/ui/sidebar";
+import { ApresentacaoProvider } from "@/context/apresentacaoContext";
 import { ClinicProvider } from "@/context/clinicContext";
 import { GeneralContextProvider } from "@/context/GeneralContext";
 import { RecordingTourProvider } from "@/context/RecordingTourContext";
@@ -50,12 +51,14 @@ export default function RootLayout({
       <AuthGuard>
         <GeneralContextProvider>
         <ClinicProvider>
+          <ApresentacaoProvider>
           <ChatPageProvider>
             <div className="min-h-screen w-full bg-[#0d0d0d]">{children}</div>
             <MobileAppBlocker />
             <CompleteRegistrationModal />
           </ChatPageProvider>
-        </ClinicProvider>
+        </ApresentacaoProvider>
+          </ClinicProvider>
         </GeneralContextProvider>
       </AuthGuard>
     );
@@ -65,6 +68,7 @@ export default function RootLayout({
     <AuthGuard>
       <GeneralContextProvider>
         <ClinicProvider>
+          <ApresentacaoProvider>
         <RecordingTourProvider>
           <ChatPageProvider>
             <div
@@ -101,7 +105,8 @@ export default function RootLayout({
             <CompleteRegistrationModal />
           </ChatPageProvider>
         </RecordingTourProvider>
-      </ClinicProvider>
+      </ApresentacaoProvider>
+          </ClinicProvider>
         </GeneralContextProvider>
     </AuthGuard>
   );

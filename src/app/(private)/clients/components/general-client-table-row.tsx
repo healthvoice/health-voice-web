@@ -1,4 +1,5 @@
 "use client";
+import { useApresentacao } from "@/context/apresentacaoContext";
 import { ClientProps } from "@/@types/general-client";
 import { useGeneralContext } from "@/context/GeneralContext";
 import { FileText } from "lucide-react";
@@ -23,6 +24,7 @@ export function GeneralClientTableItem({ client }: Props) {
     router.push(`/clients/${client.id}`);
   };
 
+  const { ocultar } = useApresentacao();
   const initials = client.name
     ? client.name
         .split(" ")
@@ -57,7 +59,7 @@ export function GeneralClientTableItem({ client }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-bold text-gray-900 transition-colors group-hover:text-sky-600">
-            {client.name || "Sem nome"}
+            {ocultar(client.name) || "Sem nome"}
           </h3>
           {client.birthDate ? (
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500">
