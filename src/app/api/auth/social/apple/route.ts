@@ -1,33 +1,80 @@
+import { backendFetch, readBackendJson } from "@/lib/api-server";
 import { setAuthCookies } from "@/lib/auth-cookies";
-import { backendFetch } from "@/lib/api-server";
+import {
+  isBoundedString,
+  isPlainRecord,
+  readSameOriginJsonWithLimit,
+  requestGuardMessage,
+  requestGuardStatus,
+} from "@/lib/server-request-guard";
 import { NextRequest, NextResponse } from "next/server";
+
+const MAX_BODY_BYTES = 24 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readSameOriginJsonWithLimit(request, MAX_BODY_BYTES);
+    if (
+      !isPlainRecord(body) ||
+      !isBoundedString(body.identityToken, 1, 16_384) ||
+      (body.fullName !== undefined && !isBoundedString(body.fullName, 1, 200))
+    ) {
+      return NextResponse.json(
+        { message: "Payload inválido" },
+        { status: 400 },
+      );
+    }
 
     const response = await backendFetch("/auth/social/apple", {
       method: "POST",
       body: JSON.stringify({
         identityToken: body.identityToken,
-        fullName: body.fullName,
-        registrationPlatform: body.registrationPlatform || "WEB",
+        ...(typeof body.fullName === "string"
+          ? { fullName: body.fullName.trim() }
+          : {}),
+        registrationPlatform: "WEB",
       }),
+      signal: request.signal,
     });
+    const data = await readBackendJson(response);
 
-    const data = await response.json();
-
+    if (!isPlainRecord(data)) {
+      return NextResponse.json(
+        { message: "Resposta inválida da API" },
+        { status: 502 },
+      );
+    }
     if (!response.ok) {
       return NextResponse.json(
-        { message: data.message || "Erro no login com Apple" },
+        {
+          message:
+            typeof data.message === "string"
+              ? data.message
+              : "Erro no login com Apple",
+        },
         { status: response.status },
+      );
+    }
+    if (
+      !isBoundedString(data.accessToken, 1, 16_384) ||
+      !isBoundedString(data.refreshToken, 1, 16_384)
+    ) {
+      return NextResponse.json(
+        { message: "Resposta inválida da API" },
+        { status: 502 },
       );
     }
 
     await setAuthCookies(data.accessToken, data.refreshToken);
-
     return NextResponse.json({ user: data.user }, { status: 200 });
   } catch (error) {
+    const status = requestGuardStatus(error);
+    if (status) {
+      return NextResponse.json(
+        { message: requestGuardMessage(error) },
+        { status },
+      );
+    }
     console.error("[api/auth/social/apple] Erro:", error);
     return NextResponse.json(
       { message: "Erro interno do servidor" },

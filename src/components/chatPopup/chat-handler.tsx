@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import OpenAI from "openai";
 import {
   Dispatch,
   SetStateAction,
@@ -12,39 +10,39 @@ import {
 import fixWebmDuration from "webm-duration-fix";
 import { Attachment, Message, Prompt } from "./types";
 
-/* ================= OpenRouter via OpenAI SDK ================= */
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!,
-  dangerouslyAllowBrowser: true, // em prod, prefira proxy/rota server-side
-  defaultHeaders: {
-    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost",
-    "X-Title": process.env.NEXT_PUBLIC_APP_NAME || "Chat Widget",
-  },
-});
-
-/** Modelo-alvo: tente um Gemini com ÁUDIO habilitado na página de modelos.
- * Se este ID específico não aceitar audio, o fallback (Whisper) entra. */
-const MODEL =
-  process.env.NEXT_PUBLIC_OPENROUTER_MODEL || "google/gemini-2.5-flash";
-
-/** Fallback de transcrição (OpenRouter) */
-const WHISPER_MODEL = "openai/whisper-large-v3";
+/* ================= OpenRouter via rotas server-side =================
+ * A chave OpenRouter vive somente no servidor (OPENROUTER_API_KEY).
+ * O client usa /api/openrouter/chat e /api/openrouter/transcribe. */
 
 /* ================= Types do payload ================= */
 type TextPart = { type: "text"; text: string };
 type ImagePart = { type: "image_url"; image_url: { url: string } };
-type AudioPart = {
-  type: "input_audio";
-  input_audio: { data: string; format: string };
+type FilePart = {
+  type: "file";
+  file: { filename: string; file_data: string };
 };
 
 type ChatMessage =
   | { role: "system"; content: string }
   | {
       role: "user" | "assistant";
-      content: string | Array<TextPart | ImagePart | AudioPart>;
+      content: string | Array<TextPart | ImagePart | FilePart>;
     };
+
+const MAX_ATTACHMENTS = 4;
+const MAX_API_MESSAGES = 50;
+const MAX_AUDIO_FILE_BYTES = 4 * 1024 * 1024;
+const MAX_EMBEDDED_TOTAL_BYTES = 2_500_000;
+const MAX_CHAT_MESSAGE_CHARS = 32_000;
+const MAX_CHAT_TOTAL_TEXT_CHARS = 64_000;
+const MAX_SYSTEM_PROMPT_CHARS = 12_000;
+const ALLOWED_EMBEDDED_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
 
 interface UseSectionChatParams {
   selectedPrompt?: Prompt;
@@ -77,31 +75,6 @@ async function fileToDataUrl(file: File): Promise<string> {
     r.readAsDataURL(file);
   });
 }
-/** Retorna apenas o base64 (sem "data:...;base64,") */
-async function fileToBase64NoPrefix(file: File): Promise<string> {
-  const dataUrl = await fileToDataUrl(file);
-  return dataUrl.split(",")[1] ?? "";
-}
-function audioFormatFromMime(mime: string) {
-  const m = (mime || "").toLowerCase();
-  if (!m.startsWith("audio/")) return "wav";
-  const ext = m.split("/")[1] || "wav";
-  if (ext === "mpeg" || ext === "mpga") return "mp3";
-  return ext;
-}
-
-/** Heurística: o texto da primeira resposta acusa que não suporta áudio? */
-function looksLikeNoAudioSupport(text: string) {
-  const t = text.toLowerCase();
-  return (
-    t.includes("não consigo processar arquivos de áudio") ||
-    t.includes("não consigo processar audio") ||
-    t.includes("cannot process audio") ||
-    t.includes("audio not supported") ||
-    t.includes("i can’t process audio")
-  );
-}
-
 /* ================= Hook ================= */
 export function useSectionChat({
   selectedPrompt,
@@ -113,9 +86,8 @@ export function useSectionChat({
 
   // gravação
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(
-    null,
-  );
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [elapsedTime, setElapsedTime] = useState("00:00");
   const [recordStartTime, setRecordStartTime] = useState<number | null>(null);
@@ -127,27 +99,52 @@ export function useSectionChat({
 
   /* ===== Gravação ===== */
   const startRecording = async () => {
-    setIsRecording(true);
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      return;
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const rec = new MediaRecorder(stream);
-    chunksRef.current = [];
-    rec.ondataavailable = (e) =>
-      e.data.size > 0 && chunksRef.current.push(e.data);
-    rec.onstop = async () => {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      const fixed = await fixWebmDuration(blob);
-      const audioFile = new File([fixed], "gravacao.webm", {
-        type: "audio/webm",
-      });
-      setFiles((prev) => [...prev, audioFile]); // Append recording to files
-      stream.getTracks().forEach((t) => t.stop());
-    };
-    rec.start();
-    setMediaRecorder(rec);
-    setRecordStartTime(Date.now());
+    try {
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recordingStreamRef.current = stream;
+      mediaRecorderRef.current = rec;
+      rec.ondataavailable = (e) =>
+        e.data.size > 0 && chunksRef.current.push(e.data);
+      rec.onstop = async () => {
+        try {
+          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+          const fixed = await fixWebmDuration(blob);
+          const audioFile = new File([fixed], "gravacao.webm", {
+            type: "audio/webm",
+          });
+          setFiles((prev) => [...prev, audioFile]);
+        } finally {
+          stream.getTracks().forEach((track) => track.stop());
+          if (recordingStreamRef.current === stream) {
+            recordingStreamRef.current = null;
+          }
+          if (mediaRecorderRef.current === rec) {
+            mediaRecorderRef.current = null;
+          }
+        }
+      };
+      rec.start();
+      setIsRecording(true);
+      setRecordStartTime(Date.now());
+    } catch (error) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
   };
   const stopRecording = () => {
-    mediaRecorder?.stop();
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
     setIsRecording(false);
     setRecordStartTime(null);
     setElapsedTime("00:00");
@@ -170,6 +167,26 @@ export function useSectionChat({
     };
   }, [recordStartTime, isRecording]);
 
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        if (recorder.state !== "inactive") {
+          recorder.stop();
+        }
+        mediaRecorderRef.current = null;
+      }
+
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+      chunksRef.current = [];
+    };
+  }, []);
+
   /* ===== UI stream flush ===== */
   function flushToUI() {
     const text = streamBufferRef.current;
@@ -183,29 +200,56 @@ export function useSectionChat({
   }
 
   /* ===== Histórico -> schema OpenRouter ===== */
-  function buildHistoryForAPI(): ChatMessage[] {
-    const out: ChatMessage[] = [];
+  function buildHistoryForAPI(currentMessageChars: number): ChatMessage[] {
+    const historyReversed: ChatMessage[] = [];
     const sys = (selectedPrompt?.prompt ?? "").trim();
-    if (sys) out.push({ role: "system", content: sys });
-
-    for (const m of messages) {
-      if (!m.content || m.content === "...") continue;
-      out.push({
-        role: m.role === "ai" ? "assistant" : "user",
-        content: m.content,
+    let remainingChars =
+      MAX_CHAT_TOTAL_TEXT_CHARS - currentMessageChars - sys.length;
+    const priorMessageLimit = MAX_API_MESSAGES - 1;
+    for (
+      let index = messages.length - 1;
+      index >= 0 && historyReversed.length < priorMessageLimit;
+      index -= 1
+    ) {
+      const message = messages[index];
+      if (!message.content || message.content === "...") continue;
+      if (
+        message.content.length > MAX_CHAT_MESSAGE_CHARS ||
+        message.content.length > remainingChars
+      ) {
+        break;
+      }
+      remainingChars -= message.content.length;
+      historyReversed.push({
+        role: message.role === "ai" ? "assistant" : "user",
+        content: message.content,
       });
     }
-    return out;
+    const history = historyReversed.reverse();
+
+    if (!sys) return history;
+
+    return [
+      { role: "system", content: sys },
+      ...history.slice(-(priorMessageLimit - 1)),
+    ];
   }
 
-  /* ===== Fallback: transcrever com Whisper ===== */
+  /* ===== Fallback: transcrever com Whisper (server-side) ===== */
   async function transcribeWithWhisper(audio: File): Promise<string> {
-    const resp = await openai.audio.transcriptions.create({
-      model: WHISPER_MODEL,
-      file: audio,
-      response_format: "text",
-    } as any);
-    return typeof resp === "string" ? resp : ((resp as any)?.text ?? "");
+    const formData = new FormData();
+    formData.append("file", audio);
+
+    const response = await fetch("/api/openrouter/transcribe", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Transcrição falhou (${response.status})`);
+    }
+
+    return await response.text();
   }
 
   /* ===== Enviar ===== */
@@ -215,181 +259,229 @@ export function useSectionChat({
     const filesToSend = [...files];
 
     if (loading || (!textToSend && filesToSend.length === 0)) return;
+    if (textToSend.length > MAX_CHAT_MESSAGE_CHARS) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: "A mensagem excede o limite de texto permitido.",
+        },
+      ]);
+      return;
+    }
+    if (
+      (selectedPrompt?.prompt ?? "").trim().length > MAX_SYSTEM_PROMPT_CHARS
+    ) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: "O prompt selecionado excede o limite permitido.",
+        },
+      ]);
+      return;
+    }
 
+    placeholderIndexRef.current = -1;
     setLoading(true);
 
-    // Prepare attachments for UI
-    const attachments: Attachment[] = [];
-    for (const f of filesToSend) {
-      const url = URL.createObjectURL(f);
-      attachments.push({
-        url,
-        type: f.type,
-        name: f.name,
-      });
-    }
+    try {
+      if (filesToSend.length > MAX_ATTACHMENTS) {
+        throw new Error(
+          `Envie no máximo ${MAX_ATTACHMENTS} arquivos por mensagem.`,
+        );
+      }
 
-    // Quando há áudio/anexos E texto: mostrar duas bolhas (áudio acima, texto abaixo) antes da resposta da IA
-    const hasAttachments = attachments.length > 0;
-    const messagesToAdd: Message[] = [];
+      const unsupportedFile = filesToSend.find(
+        (file) =>
+          !file.type.startsWith("audio/") &&
+          !ALLOWED_EMBEDDED_TYPES.has(file.type),
+      );
+      if (unsupportedFile) {
+        throw new Error(`O formato de "${unsupportedFile.name}" não é aceito.`);
+      }
 
-    if (hasAttachments) {
-      messagesToAdd.push({
-        role: "user",
-        content: filesToSend.some((f) => f.type.startsWith("audio/")) ? "Mensagem de Áudio" : "Mensagem com anexo",
-        attachments,
-        ...(filesToSend.length === 1 && filesToSend[0].type.startsWith("audio/")
-          ? {
-              file: attachments[0].url,
-              type: filesToSend[0].type,
-              name: filesToSend[0].name,
-            }
-          : {}),
-      });
-    }
-    if (textToSend) {
-      messagesToAdd.push({
-        role: "user",
-        content: textToSend,
-      });
-    }
+      const audioFiles = filesToSend.filter((file) =>
+        file.type.startsWith("audio/"),
+      );
+      if (audioFiles.length > 1) {
+        throw new Error("Envie apenas um áudio por mensagem.");
+      }
 
-    setMessages((prev) => {
-      const list = [...prev, ...messagesToAdd, { role: "ai", content: "..." }];
-      placeholderIndexRef.current = list.length - 1;
-      return list as Message[];
-    });
+      const oversizedAudio = filesToSend.find(
+        (file) =>
+          file.type.startsWith("audio/") && file.size > MAX_AUDIO_FILE_BYTES,
+      );
+      if (oversizedAudio) {
+        throw new Error(
+          `O áudio "${oversizedAudio.name}" excede o limite de 4 MB.`,
+        );
+      }
 
-    /* Construct Payload for API */
-    const parts: Array<TextPart | ImagePart | AudioPart> = [];
-    let attemptedAudio = false;
+      const embeddedFiles = filesToSend.filter(
+        (file) => !file.type.startsWith("audio/"),
+      );
+      const embeddedBytes = embeddedFiles.reduce(
+        (total, file) => total + file.size,
+        0,
+      );
+      if (embeddedBytes > MAX_EMBEDDED_TOTAL_BYTES) {
+        throw new Error(
+          "Imagens e PDFs somados excedem o limite de 2,5 MB por mensagem.",
+        );
+      }
 
-    // Process all files (áudio + outros)
-    for (const file of filesToSend) {
-      const mime = file.type || "";
-      if (mime.startsWith("image/")) {
-        const dataUrl = await fileToDataUrl(file);
-        parts.push({ type: "image_url", image_url: { url: dataUrl } });
-      } else if (mime === "application/pdf") {
-        // For Gemini via OpenRouter/OpenAI SDK, PDF is often best sent as image_url with data URI
-        // if the model supports it. Standard Gemini supports PDF.
-        // Attempts to send as image_url with application/pdf mime type in data URI.
-        const dataUrl = await fileToDataUrl(file);
-        parts.push({ type: "image_url", image_url: { url: dataUrl } });
-      } else if (mime.startsWith("audio/")) {
-        // Workaround for OpenRouter/Gemini: Send audio as a Data URI in 'image_url' or similar structure
-        // if the downstream model supports handling it as a generic file part.
-        // Using `input_audio` often fails if the router/SDK doesn't map it correctly.
-        const dataUrl = await fileToDataUrl(file);
-        parts.push({
-          type: "image_url",
-          image_url: { url: dataUrl },
+      // Prepare attachments for UI
+      const attachments: Attachment[] = [];
+      for (const f of filesToSend) {
+        const url = URL.createObjectURL(f);
+        attachments.push({
+          url,
+          type: f.type,
+          name: f.name,
         });
-        attemptedAudio = true;
-      } else {
+      }
+
+      // Quando há áudio/anexos E texto: mostrar duas bolhas (áudio acima, texto abaixo) antes da resposta da IA
+      const hasAttachments = attachments.length > 0;
+      const messagesToAdd: Message[] = [];
+
+      if (hasAttachments) {
+        messagesToAdd.push({
+          role: "user",
+          content: filesToSend.some((f) => f.type.startsWith("audio/"))
+            ? "Mensagem de Áudio"
+            : "Mensagem com anexo",
+          attachments,
+          ...(filesToSend.length === 1 &&
+          filesToSend[0].type.startsWith("audio/")
+            ? {
+                file: attachments[0].url,
+                type: filesToSend[0].type,
+                name: filesToSend[0].name,
+              }
+            : {}),
+        });
+      }
+      if (textToSend) {
+        messagesToAdd.push({
+          role: "user",
+          content: textToSend,
+        });
+      }
+
+      setMessages((prev) => {
+        const list = [
+          ...prev,
+          ...messagesToAdd,
+          { role: "ai", content: "..." },
+        ];
+        placeholderIndexRef.current = list.length - 1;
+        return list as Message[];
+      });
+
+      /* Construct Payload for API */
+      const parts: Array<TextPart | ImagePart | FilePart> = [];
+
+      // Áudios são transcritos antes do chat. Isso evita enviar base64 grande
+      // e não depende de o modelo multimodal aceitar áudio como image_url.
+      for (const file of filesToSend) {
+        const mime = file.type || "";
+        if (ALLOWED_EMBEDDED_TYPES.has(mime)) {
+          const dataUrl = await fileToDataUrl(file);
+          if (mime === "application/pdf") {
+            parts.push({
+              type: "file",
+              file: { filename: file.name, file_data: dataUrl },
+            });
+          } else {
+            parts.push({ type: "image_url", image_url: { url: dataUrl } });
+          }
+        } else if (mime.startsWith("audio/")) {
+          const transcript = await transcribeWithWhisper(file);
+          parts.push({
+            type: "text",
+            text: `[Transcrição do áudio "${file.name}"]\n${transcript}`,
+          });
+        }
+      }
+
+      // Sempre incluir texto quando o usuário digitou; senão, mensagem padrão se só houver arquivos
+      if (textToSend) {
+        parts.push({ type: "text", text: textToSend });
+      } else if (
+        filesToSend.length > 0 &&
+        !parts.some((p) => p.type === "text")
+      ) {
         parts.push({
           type: "text",
-          text: `[Arquivo anexado: ${file.name} (${mime}) - Conteúdo não enviado diretamente]`,
+          text: "Por favor, analise os arquivos enviados.",
         });
       }
-    }
 
-    // Sempre incluir texto quando o usuário digitou; senão, mensagem padrão se só houver arquivos
-    if (textToSend) {
-      parts.push({ type: "text", text: textToSend });
-    } else if (filesToSend.length > 0 && !parts.some((p) => p.type === "text")) {
-      parts.push({
-        type: "text",
-        text: "Por favor, analise os arquivos enviados.",
-      });
-    }
+      // Clean UI State
+      setInputMessage("");
+      setFiles([]);
 
-    // Clean UI State
-    setInputMessage("");
-    setFiles([]);
-
-    // Histórico + Rodada Atual
-    const base = buildHistoryForAPI();
-    const lastUser: ChatMessage = { role: "user", content: parts };
-
-    const messagesForAPI: ChatMessage[] = [...base, lastUser];
-
-    /* Streaming */
-    const runOnce = async (msgs: ChatMessage[]) => {
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      streamBufferRef.current = "";
-
-      const completion = await openai.chat.completions.create(
-        { model: MODEL, stream: true, messages: msgs as any },
-        { signal: controller.signal },
+      // Histórico + Rodada Atual
+      const currentMessageChars = parts.reduce(
+        (total, part) => total + (part.type === "text" ? part.text.length : 0),
+        0,
       );
+      if (currentMessageChars > MAX_CHAT_MESSAGE_CHARS) {
+        throw new Error("O conteúdo da mensagem excede o limite permitido.");
+      }
+      const base = buildHistoryForAPI(currentMessageChars);
+      const lastUser: ChatMessage = { role: "user", content: parts };
 
-      for await (const chunk of completion as any) {
-        const delta = chunk?.choices?.[0]?.delta?.content;
-        if (!delta) continue;
+      const messagesForAPI: ChatMessage[] = [...base, lastUser];
 
-        if (typeof delta === "string") {
-          streamBufferRef.current += delta;
-        } else if (Array.isArray(delta)) {
-          for (const d of delta) {
-            if (typeof d === "string") streamBufferRef.current += d;
-            else if (typeof d?.text === "string")
-              streamBufferRef.current += d.text;
-          }
+      /* Streaming */
+      const runOnce = async (msgs: ChatMessage[]) => {
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        streamBufferRef.current = "";
+
+        const response = await fetch("/api/openrouter/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: msgs }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(`Chat falhou (${response.status})`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          streamBufferRef.current += decoder.decode(value, { stream: true });
+          flushToUI();
         }
         flushToUI();
-      }
-      flushToUI();
-      return streamBufferRef.current;
-    };
+        return streamBufferRef.current;
+      };
 
-    try {
-      const firstText = await runOnce(messagesForAPI);
-
-      // Fallback para áudio se necessário
-      if (attemptedAudio && looksLikeNoAudioSupport(firstText)) {
-        // Encontra o primeiro arquivo de áudio para transcrever (limitação do fallback simples)
-        // Idealmente transcreveria todos, mas vamos focar no primeiro para fallback
-        const audioFile = filesToSend.find((f) => f.type.startsWith("audio/"));
-
-        if (audioFile) {
-          const transcript = await transcribeWithWhisper(audioFile);
-          const base2 = buildHistoryForAPI();
-
-          let previousText = "";
-          // Tenta recuperar o texto que o usuário mandou junto
-          const textPart = parts.find((p) => p.type === "text") as
-            | TextPart
-            | undefined;
-          if (textPart) previousText = textPart.text;
-
-          const prompt =
-            previousText.length > 0
-              ? `${previousText}\n\nTranscrição do áudio (ASR):\n${transcript}`
-              : `Transcreva e responda ao áudio:\n${transcript}`;
-
-          // Se tiver imagens, mantemos? O fallback complexo exigiria reconstruir tudo.
-          // Simplificação: manda texto + transcrição se falhou o audio nativo.
-          // Recupera imagens se houver
-          const imageParts = parts.filter((p) => p.type === "image_url");
-
-          const content: any[] = [
-            { type: "text", text: prompt },
-            ...imageParts,
-          ];
-
-          await runOnce([...base2, { role: "user", content }]);
-        }
-      }
+      await runOnce(messagesForAPI);
     } catch (err) {
       console.error("OpenRouter stream error:", err);
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Erro ao responder. Tente novamente.";
       setMessages((prev) =>
-        prev.map((m, i) =>
-          i === placeholderIndexRef.current
-            ? { ...m, content: "Erro ao responder. Tente novamente." }
-            : m,
-        ),
+        placeholderIndexRef.current >= 0
+          ? prev.map((m, i) =>
+              i === placeholderIndexRef.current
+                ? { ...m, content: message }
+                : m,
+            )
+          : [...prev, { role: "ai", content: message }],
       );
     } finally {
       setLoading(false);

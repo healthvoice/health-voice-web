@@ -77,9 +77,7 @@ export function formatDurationForAPI(seconds: number): string {
 /**
  * Retorna um título padrão quando o usuário não informa nome, conforme o tipo.
  */
-export function getDefaultTitle(options: {
-  type: RecordingType;
-}): string {
+export function getDefaultTitle(options: { type: RecordingType }): string {
   const { type } = options;
   if (type === "CLIENT") return "Gravação do Paciente";
   const labels: Record<Exclude<RecordingType, "CLIENT">, string> = {
@@ -181,6 +179,7 @@ export async function uploadMedia(
     {
       fileName: `recording-${Date.now()}.${extension}`,
       contentType: mimeType,
+      contentLength: blob.size,
     },
     true,
   );

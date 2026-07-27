@@ -1,6 +1,13 @@
 "use client";
 
 import { useSession } from "@/context/auth";
+import {
+  maskCard,
+  maskCep,
+  maskCpfCnpj,
+  maskExpiryDate,
+  maskPhone,
+} from "@/utils/masks";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -22,7 +29,12 @@ type ResolvedCustomPlan = {
   pixYearlyEnabled: boolean;
   creditMonthlyEnabled: boolean;
   creditYearlyEnabled: boolean;
-  basePlan: { id: string; name: string; description: string; dailyRecordAvailable: number };
+  basePlan: {
+    id: string;
+    name: string;
+    description: string;
+    dailyRecordAvailable: number;
+  };
   user: { id: string; name: string; email: string };
   hasCustomerId: boolean;
 };
@@ -53,28 +65,21 @@ function formatCountdown(ms: number) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+  if (h > 0)
+    return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
   return `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
-}
-
-function maskCardNumber(v: string) {
-  const digits = v.replace(/\D/g, "").slice(0, 19);
-  return digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
-}
-
-function maskExpiry(v: string) {
-  const digits = v.replace(/\D/g, "").slice(0, 4);
-  if (digits.length < 3) return digits;
-  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
 function pickInitialOption(plan: ResolvedCustomPlan): {
   paymentType: PaymentType;
   billingCycle: BillingCycle;
 } {
-  if (plan.pixMonthlyEnabled) return { paymentType: "PIX", billingCycle: "MONTHLY" };
-  if (plan.pixYearlyEnabled) return { paymentType: "PIX", billingCycle: "YEARLY" };
-  if (plan.creditMonthlyEnabled) return { paymentType: "CREDIT_CARD", billingCycle: "MONTHLY" };
+  if (plan.pixMonthlyEnabled)
+    return { paymentType: "PIX", billingCycle: "MONTHLY" };
+  if (plan.pixYearlyEnabled)
+    return { paymentType: "PIX", billingCycle: "YEARLY" };
+  if (plan.creditMonthlyEnabled)
+    return { paymentType: "CREDIT_CARD", billingCycle: "MONTHLY" };
   return { paymentType: "CREDIT_CARD", billingCycle: "YEARLY" };
 }
 
@@ -84,14 +89,27 @@ function methodOptionsAvailable(plan: ResolvedCustomPlan) {
   return { hasPix, hasCard };
 }
 
-function cycleOptionsAvailable(plan: ResolvedCustomPlan, paymentType: PaymentType) {
+function cycleOptionsAvailable(
+  plan: ResolvedCustomPlan,
+  paymentType: PaymentType,
+) {
   if (paymentType === "PIX") {
-    return { hasMonthly: plan.pixMonthlyEnabled, hasYearly: plan.pixYearlyEnabled };
+    return {
+      hasMonthly: plan.pixMonthlyEnabled,
+      hasYearly: plan.pixYearlyEnabled,
+    };
   }
-  return { hasMonthly: plan.creditMonthlyEnabled, hasYearly: plan.creditYearlyEnabled };
+  return {
+    hasMonthly: plan.creditMonthlyEnabled,
+    hasYearly: plan.creditYearlyEnabled,
+  };
 }
 
-function priceFor(plan: ResolvedCustomPlan, paymentType: PaymentType, cycle: BillingCycle) {
+function priceFor(
+  plan: ResolvedCustomPlan,
+  paymentType: PaymentType,
+  cycle: BillingCycle,
+) {
   if (paymentType === "PIX") {
     return cycle === "YEARLY" ? plan.pixYearlyPrice : plan.pixMonthlyPrice;
   }
@@ -136,7 +154,7 @@ export default function CustomCheckoutPage() {
   });
 
   const [submitting, setSubmitting] = useState(false);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Countdown tick
   useEffect(() => {
@@ -155,7 +173,10 @@ export default function CustomCheckoutPage() {
       setFlow({ kind: "error", message: "API URL não configurada." });
       return;
     }
-    fetch(`${apiUrl}/custom-plan/by-token/resolve?token=${encodeURIComponent(token)}`)
+    fetch(
+      `${apiUrl}/custom-plan/by-token/resolve?token=${encodeURIComponent(token)}`,
+      { cache: "no-store", redirect: "error" },
+    )
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) {
@@ -186,41 +207,97 @@ export default function CustomCheckoutPage() {
   // Sync cycle when switching method if current cycle not enabled for new method
   useEffect(() => {
     if (flow.kind !== "ready") return;
-    const { hasMonthly, hasYearly } = cycleOptionsAvailable(flow.plan, paymentType);
-    if (billingCycle === "MONTHLY" && !hasMonthly && hasYearly) setBillingCycle("YEARLY");
-    else if (billingCycle === "YEARLY" && !hasYearly && hasMonthly) setBillingCycle("MONTHLY");
+    const { hasMonthly, hasYearly } = cycleOptionsAvailable(
+      flow.plan,
+      paymentType,
+    );
+    if (billingCycle === "MONTHLY" && !hasMonthly && hasYearly)
+      setBillingCycle("YEARLY");
+    else if (billingCycle === "YEARLY" && !hasYearly && hasMonthly)
+      setBillingCycle("MONTHLY");
   }, [paymentType, flow, billingCycle]);
 
   // Polling loop when pix_awaiting
   useEffect(() => {
     if (flow.kind !== "pix_awaiting") return;
     const { pollingToken } = flow;
+    const pollingStartedAt = Date.now();
+    const planExpiry = new Date(flow.plan.expiresAt).getTime();
+    const pollingDeadline = Number.isFinite(planExpiry)
+      ? Math.min(planExpiry, pollingStartedAt + 30 * 60 * 1000)
+      : pollingStartedAt + 30 * 60 * 1000;
+    let cancelled = false;
+    let attempt = 0;
+
     const tick = async () => {
+      if (cancelled) return;
+      if (Date.now() >= pollingDeadline) {
+        setFlow({
+          kind: "error",
+          message:
+            "O prazo de confirmação do PIX terminou. Gere uma nova cobrança.",
+        });
+        return;
+      }
+
       try {
-        const res = await fetch(
-          `/api/checkout/custom/poll?pollingToken=${encodeURIComponent(pollingToken)}`,
-        );
+        const res = await fetch("/api/checkout/custom/poll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pollingToken }),
+        });
         const data = await res.json();
+        if (!res.ok && [400, 401, 404].includes(res.status)) {
+          setFlow({
+            kind: "error",
+            message: data?.message || "A confirmação do PIX não é mais válida.",
+          });
+          return;
+        }
         if (data?.status === "ACTIVE") {
           toast.success("Pagamento confirmado!");
           // Força refresh do profile + availability antes de navegar para que
           // o widget de plano / banner de trial atualize imediatamente.
-          await Promise.all([handleGetProfile(true), handleGetAvailableRecording()]);
+          await Promise.all([
+            handleGetProfile(true),
+            handleGetAvailableRecording(),
+          ]);
           setFlow({ kind: "success", plan: flow.plan });
           setTimeout(() => router.push("/"), 800);
+          return;
+        }
+        if (data?.status === "CANCELED" || data?.status === "PAST_DUE") {
+          setFlow({
+            kind: "error",
+            message:
+              data.status === "CANCELED"
+                ? "A autorização PIX foi cancelada."
+                : "A cobrança PIX venceu.",
+          });
+          return;
         }
       } catch {
-        // silent
+        // Falhas transitórias usam backoff; a tela permanece no estado atual.
+      }
+
+      attempt += 1;
+      const delay = Math.min(15_000, 3_000 * 1.5 ** Math.min(attempt, 5));
+      if (!cancelled) {
+        pollRef.current = setTimeout(tick, delay);
       }
     };
-    pollRef.current = setInterval(tick, 3000);
+
+    void tick();
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      cancelled = true;
+      if (pollRef.current) clearTimeout(pollRef.current);
     };
   }, [flow, router, handleGetProfile, handleGetAvailableRecording]);
 
   const planForDisplay =
-    flow.kind === "ready" || flow.kind === "pix_awaiting" || flow.kind === "success"
+    flow.kind === "ready" ||
+    flow.kind === "pix_awaiting" ||
+    flow.kind === "success"
       ? flow.plan
       : null;
 
@@ -230,7 +307,8 @@ export default function CustomCheckoutPage() {
   const isExpired = remainingMs <= 0 && planForDisplay !== null;
 
   const needsBilling =
-    flow.kind === "ready" && (!flow.plan.hasCustomerId || paymentType === "CREDIT_CARD");
+    flow.kind === "ready" &&
+    (!flow.plan.hasCustomerId || paymentType === "CREDIT_CARD");
 
   const showMethodSelector = planForDisplay
     ? (() => {
@@ -241,7 +319,10 @@ export default function CustomCheckoutPage() {
 
   const showCycleSelector = planForDisplay
     ? (() => {
-        const { hasMonthly, hasYearly } = cycleOptionsAvailable(planForDisplay, paymentType);
+        const { hasMonthly, hasYearly } = cycleOptionsAvailable(
+          planForDisplay,
+          paymentType,
+        );
         return hasMonthly && hasYearly;
       })()
     : false;
@@ -252,28 +333,43 @@ export default function CustomCheckoutPage() {
 
   const canSubmit = !submitting && !isExpired && flow.kind === "ready";
 
-  const validateBilling = () => {
+  const validateBilling = useCallback(() => {
     if (!needsBilling) return true;
-    if (!billing.name || !billing.email || !billing.cpfCnpj || !billing.mobilePhone) {
-      toast.error("Preencha nome, email, CPF/CNPJ e telefone.");
+    if (
+      !billing.name ||
+      !billing.email ||
+      !billing.cpfCnpj ||
+      !billing.mobilePhone ||
+      (paymentType === "CREDIT_CARD" &&
+        (!billing.postalCode || !billing.addressNumber))
+    ) {
+      toast.error(
+        paymentType === "CREDIT_CARD"
+          ? "Preencha nome, email, CPF/CNPJ, telefone, CEP e número."
+          : "Preencha nome, email, CPF/CNPJ e telefone.",
+      );
       return false;
     }
     return true;
-  };
+  }, [billing, needsBilling, paymentType]);
 
-  const validateCard = () => {
+  const validateCard = useCallback(() => {
     if (paymentType !== "CREDIT_CARD") return true;
     if (!card.holderName || !card.number || !card.expiry || !card.ccv) {
       toast.error("Preencha todos os dados do cartão.");
       return false;
     }
     const expParts = card.expiry.split("/");
-    if (expParts.length !== 2 || expParts[0].length !== 2 || expParts[1].length !== 2) {
+    if (
+      expParts.length !== 2 ||
+      expParts[0].length !== 2 ||
+      expParts[1].length !== 2
+    ) {
       toast.error("Validade inválida (MM/AA).");
       return false;
     }
     return true;
-  };
+  }, [card, paymentType]);
 
   const handleSubmit = useCallback(async () => {
     if (flow.kind !== "ready") return;
@@ -295,9 +391,9 @@ export default function CustomCheckoutPage() {
                   email: billing.email,
                   cpfCnpj: billing.cpfCnpj.replace(/\D/g, ""),
                   mobilePhone: billing.mobilePhone.replace(/\D/g, ""),
-                  postalCode: billing.postalCode || undefined,
+                  postalCode:
+                    billing.postalCode.replace(/\D/g, "") || undefined,
                   addressNumber: billing.addressNumber || undefined,
-                  address: billing.addressNumber || undefined,
                 }
               : undefined,
           }),
@@ -349,7 +445,10 @@ export default function CustomCheckoutPage() {
         toast.success("Assinatura criada!");
         // Força refresh do profile + availability antes de navegar — sem isso,
         // o banner de trial / widget de plano continua mostrando dados stale.
-        await Promise.all([handleGetProfile(true), handleGetAvailableRecording()]);
+        await Promise.all([
+          handleGetProfile(true),
+          handleGetAvailableRecording(),
+        ]);
         setFlow({ kind: "success", plan: flow.plan });
         setTimeout(() => router.push("/"), 800);
       }
@@ -359,7 +458,20 @@ export default function CustomCheckoutPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [flow, paymentType, billingCycle, token, billing, card, needsBilling, router, handleGetProfile, handleGetAvailableRecording]);
+  }, [
+    flow,
+    paymentType,
+    billingCycle,
+    token,
+    billing,
+    card,
+    needsBilling,
+    router,
+    handleGetProfile,
+    handleGetAvailableRecording,
+    validateBilling,
+    validateCard,
+  ]);
 
   if (flow.kind === "loading") {
     return (
@@ -373,7 +485,9 @@ export default function CustomCheckoutPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-50 p-6">
         <div className="max-w-md rounded-2xl border border-red-200 bg-white p-8 shadow-lg">
-          <h1 className="text-2xl font-bold text-stone-900">Link indisponível</h1>
+          <h1 className="text-2xl font-bold text-stone-900">
+            Link indisponível
+          </h1>
           <p className="mt-2 text-sm text-stone-600">{flow.message}</p>
           <button
             onClick={() => router.push("/login")}
@@ -389,8 +503,10 @@ export default function CustomCheckoutPage() {
   if (flow.kind === "success") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-50 p-6">
-        <div className="max-w-md rounded-2xl border border-emerald-200 bg-white p-8 shadow-lg text-center">
-          <h1 className="text-2xl font-bold text-emerald-700">Assinatura confirmada!</h1>
+        <div className="max-w-md rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-lg">
+          <h1 className="text-2xl font-bold text-emerald-700">
+            Assinatura confirmada!
+          </h1>
           <p className="mt-2 text-sm text-stone-600">
             Redirecionando para o painel...
           </p>
@@ -429,7 +545,7 @@ export default function CustomCheckoutPage() {
         </div>
 
         {flow.kind === "ready" && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6">
+          <div className="space-y-6 rounded-2xl bg-white p-6 shadow-sm">
             {showMethodSelector && (
               <div>
                 <p className="mb-2 text-sm font-medium text-stone-700">
@@ -471,7 +587,9 @@ export default function CustomCheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setBillingCycle("MONTHLY")}
-                    disabled={!cycleOptionsAvailable(plan, paymentType).hasMonthly}
+                    disabled={
+                      !cycleOptionsAvailable(plan, paymentType).hasMonthly
+                    }
                     className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
                       billingCycle === "MONTHLY"
                         ? "border-stone-900 bg-stone-900 text-white"
@@ -483,7 +601,9 @@ export default function CustomCheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setBillingCycle("YEARLY")}
-                    disabled={!cycleOptionsAvailable(plan, paymentType).hasYearly}
+                    disabled={
+                      !cycleOptionsAvailable(plan, paymentType).hasYearly
+                    }
                     className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
                       billingCycle === "YEARLY"
                         ? "border-stone-900 bg-stone-900 text-white"
@@ -497,7 +617,7 @@ export default function CustomCheckoutPage() {
             )}
 
             <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-center">
-              <p className="text-xs uppercase tracking-wide text-stone-500">
+              <p className="text-xs tracking-wide text-stone-500 uppercase">
                 {paymentType === "PIX" ? "PIX" : "Cartão"}{" "}
                 {billingCycle === "YEARLY" ? "Anual" : "Mensal"}
               </p>
@@ -508,31 +628,51 @@ export default function CustomCheckoutPage() {
 
             {needsBilling && (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-stone-700">Dados de cobrança</p>
+                <p className="text-sm font-medium text-stone-700">
+                  Dados de cobrança
+                </p>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <input
                     placeholder="Nome completo"
                     value={billing.name}
-                    onChange={(e) => setBilling({ ...billing, name: e.target.value })}
+                    onChange={(e) =>
+                      setBilling({ ...billing, name: e.target.value })
+                    }
                     className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
                   />
                   <input
                     placeholder="E-mail"
                     type="email"
                     value={billing.email}
-                    onChange={(e) => setBilling({ ...billing, email: e.target.value })}
+                    onChange={(e) =>
+                      setBilling({ ...billing, email: e.target.value })
+                    }
                     className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
                   />
                   <input
                     placeholder="CPF/CNPJ (só números)"
                     value={billing.cpfCnpj}
-                    onChange={(e) => setBilling({ ...billing, cpfCnpj: e.target.value })}
+                    onChange={(e) =>
+                      setBilling({
+                        ...billing,
+                        cpfCnpj: maskCpfCnpj(e.target.value),
+                      })
+                    }
+                    maxLength={18}
+                    inputMode="numeric"
                     className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
                   />
                   <input
                     placeholder="Telefone (só números com DDD)"
                     value={billing.mobilePhone}
-                    onChange={(e) => setBilling({ ...billing, mobilePhone: e.target.value })}
+                    onChange={(e) =>
+                      setBilling({
+                        ...billing,
+                        mobilePhone: maskPhone(e.target.value),
+                      })
+                    }
+                    maxLength={15}
+                    inputMode="tel"
                     className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
                   />
                   {paymentType === "CREDIT_CARD" && (
@@ -541,16 +681,25 @@ export default function CustomCheckoutPage() {
                         placeholder="CEP"
                         value={billing.postalCode}
                         onChange={(e) =>
-                          setBilling({ ...billing, postalCode: e.target.value })
+                          setBilling({
+                            ...billing,
+                            postalCode: maskCep(e.target.value),
+                          })
                         }
+                        maxLength={9}
+                        inputMode="numeric"
                         className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
                       />
                       <input
                         placeholder="Número do endereço"
                         value={billing.addressNumber}
                         onChange={(e) =>
-                          setBilling({ ...billing, addressNumber: e.target.value })
+                          setBilling({
+                            ...billing,
+                            addressNumber: e.target.value,
+                          })
                         }
+                        maxLength={20}
                         className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
                       />
                     </>
@@ -561,21 +710,28 @@ export default function CustomCheckoutPage() {
 
             {paymentType === "CREDIT_CARD" && (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-stone-700">Dados do cartão</p>
+                <p className="text-sm font-medium text-stone-700">
+                  Dados do cartão
+                </p>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <input
                     placeholder="Nome impresso no cartão"
                     value={card.holderName}
-                    onChange={(e) => setCard({ ...card, holderName: e.target.value })}
+                    onChange={(e) =>
+                      setCard({ ...card, holderName: e.target.value })
+                    }
                     className="rounded-lg border border-stone-200 px-3 py-2 text-sm md:col-span-2"
                   />
                   <input
                     placeholder="Número do cartão"
                     value={card.number}
                     onChange={(e) =>
-                      setCard({ ...card, number: maskCardNumber(e.target.value) })
+                      setCard({
+                        ...card,
+                        number: maskCard(e.target.value),
+                      })
                     }
-                    maxLength={23}
+                    maxLength={19}
                     inputMode="numeric"
                     className="rounded-lg border border-stone-200 px-3 py-2 text-sm md:col-span-2"
                   />
@@ -583,7 +739,10 @@ export default function CustomCheckoutPage() {
                     placeholder="MM/AA"
                     value={card.expiry}
                     onChange={(e) =>
-                      setCard({ ...card, expiry: maskExpiry(e.target.value) })
+                      setCard({
+                        ...card,
+                        expiry: maskExpiryDate(e.target.value),
+                      })
                     }
                     maxLength={5}
                     inputMode="numeric"
@@ -593,7 +752,10 @@ export default function CustomCheckoutPage() {
                     placeholder="CVV"
                     value={card.ccv}
                     onChange={(e) =>
-                      setCard({ ...card, ccv: e.target.value.replace(/\D/g, "").slice(0, 4) })
+                      setCard({
+                        ...card,
+                        ccv: e.target.value.replace(/\D/g, "").slice(0, 4),
+                      })
                     }
                     maxLength={4}
                     inputMode="numeric"
@@ -621,11 +783,13 @@ export default function CustomCheckoutPage() {
         )}
 
         {flow.kind === "pix_awaiting" && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4 text-center">
+          <div className="space-y-4 rounded-2xl bg-white p-6 text-center shadow-sm">
             <h2 className="text-xl font-semibold text-stone-900">
               Escaneie o QR ou copie o código
             </h2>
             {flow.qrCode.encodedImage ? (
+              // A imagem já é devolvida como data URL pelo provedor de PIX.
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={`data:image/png;base64,${flow.qrCode.encodedImage}`}
                 alt="QR Code PIX"
@@ -638,10 +802,10 @@ export default function CustomCheckoutPage() {
             )}
             {flow.qrCode.payload && (
               <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-left">
-                <p className="text-xs font-medium text-stone-500 mb-1">
+                <p className="mb-1 text-xs font-medium text-stone-500">
                   Código PIX copia-e-cola
                 </p>
-                <p className="break-all text-xs text-stone-900 font-mono">
+                <p className="font-mono text-xs break-all text-stone-900">
                   {flow.qrCode.payload}
                 </p>
                 <button

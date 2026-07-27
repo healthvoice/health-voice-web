@@ -12,7 +12,7 @@ export async function GET() {
     if (!accessToken) {
       return NextResponse.json(
         { authenticated: false, user: null },
-        { status: 401 },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
 
@@ -21,7 +21,7 @@ export async function GET() {
     if (parts.length !== 3) {
       return NextResponse.json(
         { authenticated: false, user: null },
-        { status: 401 },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
 
@@ -33,7 +33,7 @@ export async function GET() {
     if (payload.exp && payload.exp * 1000 < Date.now()) {
       return NextResponse.json(
         { authenticated: false, user: null },
-        { status: 401 },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
 
@@ -46,13 +46,13 @@ export async function GET() {
           role: payload.role,
         },
       },
-      { status: 200 },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     console.error("[api/auth/session] Erro:", error);
     return NextResponse.json(
       { authenticated: false, user: null },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

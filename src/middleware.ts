@@ -1,14 +1,10 @@
 import { ACCESS_TOKEN_KEY } from "@/lib/auth-cookies";
 import { NextRequest, NextResponse } from "next/server";
 
-// Rotas que não exigem autenticação
-const PUBLIC_PATHS = [
-  "/login",
-  "/register",
-  "/reset-password",
-  "/privacy",
-  "/terms",
-];
+// Rotas de autenticação (usuários logados são redirecionados para home)
+const AUTH_PATHS = ["/login", "/reset-password"];
+// Rotas públicas independentemente do estado de autenticação
+const PUBLIC_PATHS = ["/privacy", "/terms", "/checkout/custom"];
 
 // Prefixos que devem ser ignorados pelo middleware
 const IGNORED_PREFIXES = ["/_next", "/api", "/icons", "/logos", "/favicon"];
@@ -26,20 +22,31 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const matchesPath = (paths: string[]) =>
+    paths.some((path) => pathname === path || pathname.startsWith(path + "/"));
+
+  // Congelamento do B2C: qualquer URL antiga de cadastro volta ao login.
+  if (pathname === "/register" || pathname.startsWith("/register/")) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  const isAuthPath = matchesPath(AUTH_PATHS);
+  const isPublicPath = matchesPath(PUBLIC_PATHS);
+
+  if (isPublicPath) {
+    return NextResponse.next();
+  }
+
   const accessToken = request.cookies.get(ACCESS_TOKEN_KEY)?.value;
   const isAuthenticated = !!accessToken;
 
-  const isPublicPath = PUBLIC_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(path + "/"),
-  );
-
-  // Usuário autenticado tentando acessar login/register → redireciona para home
-  if (isAuthenticated && isPublicPath) {
+  // Usuário autenticado tentando acessar login/reset → redireciona para home
+  if (isAuthenticated && isAuthPath) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
   // Usuário não autenticado tentando acessar rota protegida → redireciona para login
-  if (!isAuthenticated && !isPublicPath) {
+  if (!isAuthenticated && !isAuthPath) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

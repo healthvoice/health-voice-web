@@ -24,10 +24,10 @@ export function useRecordingUpload() {
           {
             fileName: `recording-${Date.now()}.${extension}`, // e.g., "recording-1234567890.mp3"
             contentType: mimeType, // "audio/mpeg" for audio, "video/webm" for video
+            contentLength: blob.size,
           },
           true, // Requires authentication
         );
-        console.log("presignedResponse", presignedResponse);
 
         if (!presignedResponse || presignedResponse.status >= 400) {
           throw new Error(`Falha ao obter URL de upload para ${mediaType}.`);
@@ -42,14 +42,6 @@ export function useRecordingUpload() {
         }
 
         // Step 2: Direct upload to presigned URL
-        console.log("--- [useRecordingUpload] Starting Upload ---");
-        console.log("Upload URL:", uploadUrl);
-        console.log("Headers:", {
-          "Content-Type": mimeType,
-        });
-        console.log("Blob size:", blob.size);
-        console.log("Blob type:", blob.type);
-
         const uploadResponse = await fetch(uploadUrl, {
           method: "PUT", // Presigned URLs use PUT method
           body: blob, // The recorded media blob
@@ -57,8 +49,6 @@ export function useRecordingUpload() {
             "Content-Type": mimeType, // Must match the exact MIME type
           },
         });
-        console.log("Upload Response Status:", uploadResponse.status);
-        console.log("Upload Response Text:", await uploadResponse.text()); // Caution: reading body might consume it if not cloned, but for error debugging it's useful
 
         if (!uploadResponse.ok) {
           console.error("Upload failed with status:", uploadResponse.status);

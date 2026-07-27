@@ -3,7 +3,7 @@ export function maskCep(value: string) {
     return "";
   }
 
-  value = value.replace(/\D/g, ""); // 1239856
+  value = value.replace(/\D/g, "").slice(0, 8); // 1239856
   value = value.replace(/^(\d{5})(\d)/, "$1-$2");
   return value;
 }
@@ -12,7 +12,7 @@ export function maskPhone(value: string) {
   if (!value) {
     return "";
   }
-  value = value.replace(/\D/g, "");
+  value = value.replace(/\D/g, "").slice(0, 11);
   // (11)1111-1111
   value = value.replace(/^(\d{2})(\d)/g, "($1) $2");
   value = value.replace(/(\d)(\d{4})$/, "$1-$2");
@@ -23,7 +23,7 @@ export function maskCpf(value: string) {
   if (!value) {
     return "";
   }
-  value = value.replace(/\D/g, "");
+  value = value.replace(/\D/g, "").slice(0, 11);
 
   if (value.length <= 11) {
     value = value.replace(/(\d{3})(\d)/, "$1.$2");
@@ -37,7 +37,7 @@ export function maskCnpj(value: string) {
   if (!value) {
     return "";
   }
-  value = value.replace(/\D/g, "");
+  value = value.replace(/\D/g, "").slice(0, 14);
 
   value = value.replace(/^(\d{2})(\d)/, "$1.$2");
   value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
@@ -51,7 +51,7 @@ export function maskCpfCnpj(value: string) {
   if (!value) {
     return "";
   }
-  value = value.replace(/\D/g, "");
+  value = value.replace(/\D/g, "").slice(0, 14);
 
   if (value.length <= 11) {
     value = value.replace(/(\d{3})(\d)/, "$1.$2");
@@ -86,24 +86,15 @@ export function maskCard(value: string) {
   if (!value) {
     return "";
   }
-  if (value.length <= 17) {
-    value = value.replace(/\D/g, "");
-    value = value.replace(/(\d{4})(\d)/, "$1 $2");
-    value = value.replace(/(\d{6})(\d)/, "$1 $2");
-    return value;
-  }
-  value = value.replace(/\D/g, "");
-  value = value.replace(/(\d{4})(\d)/, "$1 $2");
-  value = value.replace(/(\d{4})(\d)/, "$1 $2");
-  value = value.replace(/(\d{4})(\d)/, "$1 $2");
-  return value;
+  const digits = value.replace(/\D/g, "").slice(0, 16);
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ");
 }
 
 export function maskExpiryDate(value: string) {
   if (!value) {
     return "";
   }
-  value = value.replace(/\D/g, "");
+  value = value.replace(/\D/g, "").slice(0, 4);
   value = value.replace(/(\d{2})(\d)/, "$1/$2");
   return value;
 }
@@ -112,7 +103,7 @@ export function maskCVC(value: string) {
   if (!value) {
     return "";
   }
-  value = value.replace(/\D/g, "");
+  value = value.replace(/\D/g, "").slice(0, 4);
   return value;
 }
 

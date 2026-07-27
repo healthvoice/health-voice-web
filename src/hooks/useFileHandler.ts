@@ -25,7 +25,9 @@ export function useFileHandler() {
       const filesArray = Array.from(newFiles);
 
       if (files.length + filesArray.length > MAX_FILES) {
-        toast.error(`Você só pode enviar no máximo ${MAX_FILES} arquivos por vez.`);
+        toast.error(
+          `Você só pode enviar no máximo ${MAX_FILES} arquivos por vez.`,
+        );
         return;
       }
 
@@ -64,7 +66,10 @@ export function useFileHandler() {
             const result = await mammoth.extractRawText({ arrayBuffer });
             extractedContent = result.value;
           } catch (error) {
-            console.warn(`Erro ao ler DOCX ${file.name} (mammoth pode não estar instalado):`, error);
+            console.warn(
+              `Erro ao ler DOCX ${file.name} (mammoth pode não estar instalado):`,
+              error,
+            );
             // Continua sem extrair conteúdo
           }
         }
@@ -81,13 +86,15 @@ export function useFileHandler() {
       setFiles((prev) => [...prev, ...processedFiles]);
       setIsProcessing(false);
     },
-    [files]
+    [files],
   );
 
   const addFile = useCallback(
     async (file: File) => {
       if (files.length >= MAX_FILES) {
-        toast.error(`Você só pode enviar no máximo ${MAX_FILES} arquivos por vez.`);
+        toast.error(
+          `Você só pode enviar no máximo ${MAX_FILES} arquivos por vez.`,
+        );
         return;
       }
 
@@ -123,7 +130,10 @@ export function useFileHandler() {
           const result = await mammoth.extractRawText({ arrayBuffer });
           extractedContent = result.value;
         } catch (error) {
-          console.warn(`Erro ao ler DOCX ${file.name} (mammoth pode não estar instalado):`, error);
+          console.warn(
+            `Erro ao ler DOCX ${file.name} (mammoth pode não estar instalado):`,
+            error,
+          );
           // Continua sem extrair conteúdo
         }
       }
@@ -139,7 +149,7 @@ export function useFileHandler() {
       setFiles((prev) => [...prev, processedFile]);
       setIsProcessing(false);
     },
-    [files]
+    [files],
   );
 
   const removeFile = useCallback((idToRemove: string) => {
@@ -157,35 +167,6 @@ export function useFileHandler() {
     setFiles([]);
   }, [files]);
 
-  /**
-   * Converte TODOS os arquivos atuais para Base64
-   * Retorna um array de objetos prontos para envio
-   */
-  const getFilesAsBase64 = async () => {
-    const promises = files.map(async (item) => {
-      return new Promise<{
-        name: string;
-        type: string;
-        base64: string;
-        extractedText?: string;
-      }>((resolve, reject) => {
-        // Se for DOCX, talvez não precisemos do base64 se já temos o texto,
-        // mas vamos enviar base64 caso queira guardar o arquivo original.
-        const reader = new FileReader();
-        reader.onload = () =>
-          resolve({
-            name: item.file.name,
-            type: item.file.type,
-            base64: reader.result as string,
-            extractedText: item.extractedContent,
-          });
-        reader.onerror = reject;
-        reader.readAsDataURL(item.file);
-      });
-    });
-    return Promise.all(promises);
-  };
-
   return {
     files, // Agora é um array
     isProcessing,
@@ -193,6 +174,5 @@ export function useFileHandler() {
     addFile, // Adiciona um único arquivo
     removeFile, // Nova função
     clearFiles,
-    getFilesAsBase64, // Nova função que processa em lote
   };
 }

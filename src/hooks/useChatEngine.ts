@@ -14,6 +14,15 @@ type ExtendedMessage = Message & {
   createdAt?: string;
 };
 
+type BackendMessage = {
+  id?: string;
+  entity?: string;
+  text?: string;
+  createdAt?: string;
+  fileUrl?: string;
+  mimeType?: string;
+};
+
 // --- HELPERS ---
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -23,6 +32,36 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     reader.readAsDataURL(blob);
   });
 };
+
+const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+const MAX_EMBEDDED_MEDIA_BYTES = 2_500_000;
+const MAX_CHAT_MESSAGE_CHARS = 32_000;
+const MAX_CHAT_TOTAL_CONTEXT_CHARS = 64_000;
+const MAX_EMBEDDED_FILES = 4;
+const ALLOWED_EMBEDDED_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+
+async function transcribeAudioFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetch("/api/openrouter/transcribe", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Não foi possível transcrever o áudio (${response.status}).`,
+    );
+  }
+
+  return response.text();
+}
 
 interface UseChatEngineProps {
   chatId?: string;
@@ -36,7 +75,7 @@ export function useChatEngine({
   chatId: initialChatId,
   promptId,
   promptContent,
-  model = "google/gemini-2.5-flash",
+  model,
   skipPersistence = false,
 }: UseChatEngineProps = {}) {
   // --- STATES ---
@@ -106,22 +145,24 @@ export function useChatEngine({
         : res.body?.messages || [];
 
       // MAPEAMENTO (Backend -> Frontend)
-      const mappedMessages: ExtendedMessage[] = dataBackend.map((msg: any) => {
-        const validFile =
-          msg.fileUrl &&
-          !msg.fileUrl.endsWith("/null") &&
-          !msg.fileUrl.endsWith("/undefined");
+      const mappedMessages: ExtendedMessage[] = dataBackend.map(
+        (msg: BackendMessage) => {
+          const validFile =
+            msg.fileUrl &&
+            !msg.fileUrl.endsWith("/null") &&
+            !msg.fileUrl.endsWith("/undefined");
 
-        return {
-          id: msg.id,
-          role: msg.entity === "USER" ? "user" : "ai",
-          content: msg.text || "",
-          createdAt: msg.createdAt,
-          file: validFile ? msg.fileUrl : undefined,
-          type: msg.mimeType,
-          name: "Arquivo",
-        };
-      });
+          return {
+            id: msg.id,
+            role: msg.entity === "USER" ? "user" : "ai",
+            content: msg.text || "",
+            createdAt: msg.createdAt,
+            file: validFile ? msg.fileUrl : undefined,
+            type: msg.mimeType,
+            name: "Arquivo",
+          };
+        },
+      );
 
       setMessages(mappedMessages);
     } catch (error) {
@@ -175,18 +216,25 @@ export function useChatEngine({
     }
   };
 
-  const updateTitleOnBackend = async (chatId: string, newTitle: string) => {
-    try {
-      const response = await PutAPI(`/chat/${chatId}`, { name: newTitle }, true);
-      if (response.status >= 400) {
+  const updateTitleOnBackend = useCallback(
+    async (chatId: string, newTitle: string) => {
+      try {
+        const response = await PutAPI(
+          `/chat/${chatId}`,
+          { name: newTitle },
+          true,
+        );
+        if (response.status >= 400) {
+          // Não mostra toast para erros de atualização de título (não crítico)
+          console.error("Erro ao atualizar título:", response);
+        }
+      } catch (error) {
+        console.error("Erro ao atualizar título:", error);
         // Não mostra toast para erros de atualização de título (não crítico)
-        console.error("Erro ao atualizar título:", response);
       }
-    } catch (error) {
-      console.error("Erro ao atualizar título:", error);
-      // Não mostra toast para erros de atualização de título (não crítico)
-    }
-  };
+    },
+    [PutAPI],
+  );
 
   // --- 2. TÍTULO INTELIGENTE ---
   const generateSmartTitle = useCallback(
@@ -212,122 +260,211 @@ export function useChatEngine({
         console.error("Falha ao gerar título:", e);
       }
     },
-    [],
+    [updateTitleOnBackend],
   );
 
   // --- 3. ENVIO DE MENSAGEM (PRINCIPAL) ---
   const sendMessage = async (textInput: string) => {
     const text = textInput.trim();
-    const hasAudio = !!audioRecorder.audioFile;
+    const hasRecordedAudio = !!audioRecorder.audioFile;
     const hasFiles = fileHandler.files.length > 0;
 
-    if (!text && !hasAudio && !hasFiles) return;
+    if (!text && !hasRecordedAudio && !hasFiles) return;
+
+    const uploadedAudioFiles = fileHandler.files.filter((item) =>
+      item.file.type.startsWith("audio/"),
+    );
+    const audioFiles = [
+      ...uploadedAudioFiles.map((item) => item.file),
+      ...(audioRecorder.audioFile ? [audioRecorder.audioFile] : []),
+    ];
+    if (audioFiles.length > 1) {
+      toast.error("Envie apenas um áudio por mensagem.");
+      return;
+    }
+    if (audioFiles.some((file) => file.size > MAX_AUDIO_BYTES)) {
+      toast.error("O áudio excede o limite de 4 MB.");
+      return;
+    }
+
+    const embeddedFiles = fileHandler.files.filter(
+      (item) => item.type === "image" || item.type === "pdf",
+    );
+    const unsupportedEmbeddedFile = embeddedFiles.find(
+      (item) => !ALLOWED_EMBEDDED_TYPES.has(item.file.type),
+    );
+    if (unsupportedEmbeddedFile) {
+      toast.error(
+        `O formato de "${unsupportedEmbeddedFile.file.name}" não é aceito pela IA.`,
+      );
+      return;
+    }
+    if (embeddedFiles.length > MAX_EMBEDDED_FILES) {
+      toast.error(`Envie no máximo ${MAX_EMBEDDED_FILES} imagens/PDFs.`);
+      return;
+    }
+    const embeddedBytes = embeddedFiles.reduce(
+      (total, item) => total + item.file.size,
+      0,
+    );
+    if (embeddedBytes > MAX_EMBEDDED_MEDIA_BYTES) {
+      toast.error("Imagens e PDFs somados excedem o limite de 2,5 MB.");
+      return;
+    }
+
+    const docxContents = fileHandler.files
+      .filter((item) => item.extractedContent)
+      .map(
+        (item) =>
+          `\n--- Conteúdo de ${item.file.name} ---\n${item.extractedContent}`,
+      );
+    const preparedText =
+      text +
+      (docxContents.length > 0
+        ? "\n\n[CONTEXTO DOS ARQUIVOS ANEXADOS]:" + docxContents.join("\n")
+        : "");
+    if (preparedText.length > MAX_CHAT_MESSAGE_CHARS) {
+      toast.error("O texto e os documentos excedem o limite da mensagem.");
+      return;
+    }
 
     setLoading(true);
     setStreamingContent("");
 
-    // --- A. PREPARAÇÃO VISUAL (OTIMISTA) ---
-    // Cria um array temporário para atualizar a UI instantaneamente
-    const tempMessages: ExtendedMessage[] = [];
-    const timestamp = new Date().toISOString();
+    try {
+      // --- A. PREPARAÇÃO VISUAL (OTIMISTA) ---
+      // Cria um array temporário para atualizar a UI instantaneamente
+      const tempMessages: ExtendedMessage[] = [];
+      const timestamp = new Date().toISOString();
 
-    // 1. Adiciona bolhas para cada arquivo
-    fileHandler.files.forEach((f, idx) => {
-      tempMessages.push({
-        id: `temp-file-${idx}-${Date.now()}`,
-        role: "user",
-        content: "", // Arquivo visualmente não precisa de texto no balão se tiver preview
-        createdAt: timestamp,
-        attachments: [
-          {
-            url: f.preview,
-            type: f.type === "pdf" ? "application/pdf" : f.file.type,
-            name: f.file.name,
-          },
-        ],
+      // 1. Adiciona bolhas para cada arquivo
+      fileHandler.files.forEach((f, idx) => {
+        tempMessages.push({
+          id: `temp-file-${idx}-${Date.now()}`,
+          role: "user",
+          content: "", // Arquivo visualmente não precisa de texto no balão se tiver preview
+          createdAt: timestamp,
+          attachments: [
+            {
+              url: f.preview,
+              type: f.type === "pdf" ? "application/pdf" : f.file.type,
+              name: f.file.name,
+            },
+          ],
+        });
       });
-    });
 
-    // 2. Adiciona bolha para áudio (se houver)
-    let audioBase64: string | null = null;
-    if (hasAudio && audioRecorder.audioFile) {
-      const audioUrl = URL.createObjectURL(audioRecorder.audioFile);
-      tempMessages.push({
-        id: `temp-audio-${Date.now()}`,
-        role: "user",
-        content: "Mensagem de Áudio",
-        createdAt: timestamp,
-        attachments: [
-          {
-            url: audioUrl,
-            type: audioRecorder.audioFile.type,
-            name: "Áudio",
-          },
-        ],
-      });
-      // Prepara Base64 para IA
-      audioBase64 = await blobToBase64(audioRecorder.audioFile);
-    }
+      // 2. Adiciona bolha para áudio (se houver)
+      if (hasRecordedAudio && audioRecorder.audioFile) {
+        const audioUrl = URL.createObjectURL(audioRecorder.audioFile);
+        tempMessages.push({
+          id: `temp-audio-${Date.now()}`,
+          role: "user",
+          content: "Mensagem de Áudio",
+          createdAt: timestamp,
+          attachments: [
+            {
+              url: audioUrl,
+              type: audioRecorder.audioFile.type,
+              name: "Áudio",
+            },
+          ],
+        });
+      }
 
-    // 3. Adiciona bolha de texto (com contexto extraído de DOCX, se houver)
-    let finalText = text;
-    const docxContents = fileHandler.files
-      .filter((f) => f.extractedContent)
-      .map(
-        (f) => `\n--- Conteúdo de ${f.file.name} ---\n${f.extractedContent}`,
+      // 3. Adiciona bolha de texto (com contexto extraído de DOCX, se houver)
+      let finalText = preparedText;
+      if (audioFiles[0]) {
+        const transcript = await transcribeAudioFile(audioFiles[0]);
+        finalText += `\n\n[TRANSCRIÇÃO DO ÁUDIO]:\n${transcript}`;
+      }
+      if (finalText.length > MAX_CHAT_MESSAGE_CHARS) {
+        throw new Error("O contexto da mensagem excede o limite permitido.");
+      }
+
+      const historyBudget = MAX_CHAT_TOTAL_CONTEXT_CHARS - finalText.length;
+      let usedHistoryChars = 0;
+      const boundedHistoryReversed: Array<{
+        role: "assistant" | "user";
+        content: string;
+      }> = [];
+      const eligibleHistory = messages.filter(
+        (message) => Boolean(message.content) && message.content !== "...",
+      );
+      for (
+        let index = eligibleHistory.length - 1;
+        index >= 0 && boundedHistoryReversed.length < 99;
+        index -= 1
+      ) {
+        const message = eligibleHistory[index];
+        if (
+          message.content.length > MAX_CHAT_MESSAGE_CHARS ||
+          usedHistoryChars + message.content.length > historyBudget
+        ) {
+          break;
+        }
+        usedHistoryChars += message.content.length;
+        boundedHistoryReversed.push({
+          role: message.role === "ai" ? "assistant" : "user",
+          content: message.content,
+        });
+      }
+      const historyMessages = boundedHistoryReversed.reverse();
+      const apiMessages = [
+        ...historyMessages,
+        {
+          role: "user" as const,
+          content: finalText || "Por favor, analise os arquivos enviados.",
+        },
+      ];
+      if (
+        new TextEncoder().encode(JSON.stringify(apiMessages)).byteLength >
+        120 * 1024
+      ) {
+        throw new Error("O histórico da conversa excede o limite permitido.");
+      }
+
+      if (finalText) {
+        tempMessages.push({
+          id: `temp-text-${Date.now()}`,
+          role: "user",
+          content: finalText,
+          createdAt: timestamp,
+        });
+      }
+
+      // Atualiza o estado visual (mensagens do usuário)
+      const updatedMessages = [...messages, ...tempMessages];
+      const aiMsgId = `ai-loading-${Date.now()}`;
+      // Balão da IA com "..." animado aparece imediatamente ao enviar
+      setMessages([
+        ...updatedMessages,
+        {
+          id: aiMsgId,
+          role: "ai",
+          content: "...",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      // --- B. PREPARAÇÃO DE DADOS PARA A IA E BACKEND ---
+
+      // Somente imagens/PDFs pequenos seguem em base64. Áudio já virou texto e
+      // DOCX já teve o conteúdo extraído no navegador.
+      const processedFilesForAI = await Promise.all(
+        embeddedFiles.map(async (item) => ({
+          name: item.file.name,
+          type: item.file.type,
+          base64: await blobToBase64(item.file),
+        })),
       );
 
-    if (docxContents.length > 0) {
-      finalText +=
-        "\n\n[CONTEXTO DOS ARQUIVOS ANEXADOS]:" + docxContents.join("\n");
-    }
+      // 2. Guarda referências dos arquivos originais para salvar no Backend
+      // (Precisamos clonar o array antes de limpar o handler)
+      const originalFilesForBackend = [...fileHandler.files];
+      const audioFileForBackend = audioRecorder.audioFile;
 
-    if (finalText) {
-      tempMessages.push({
-        id: `temp-text-${Date.now()}`,
-        role: "user",
-        content: finalText,
-        createdAt: timestamp,
-      });
-    }
-
-    // Atualiza o estado visual (mensagens do usuário)
-    const updatedMessages = [...messages, ...tempMessages];
-    const aiMsgId = `ai-loading-${Date.now()}`;
-    // Balão da IA com "..." animado aparece imediatamente ao enviar
-    setMessages([
-      ...updatedMessages,
-      {
-        id: aiMsgId,
-        role: "ai",
-        content: "...",
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-
-    // --- B. PREPARAÇÃO DE DADOS PARA A IA E BACKEND ---
-
-    // 1. Processa arquivos para IA (Base64)
-    // Se não tiver arquivos, retorna array vazio
-    const processedFilesForAI =
-      fileHandler.files.length > 0 ? await fileHandler.getFilesAsBase64() : [];
-
-    // Adiciona o áudio na lista de arquivos da IA, se existir
-    if (hasAudio && audioBase64 && audioRecorder.audioFile) {
-      processedFilesForAI.push({
-        name: "audio_gravado.webm",
-        type: audioRecorder.audioFile.type,
-        base64: audioBase64,
-      });
-    }
-
-    // 2. Guarda referências dos arquivos originais para salvar no Backend
-    // (Precisamos clonar o array antes de limpar o handler)
-    const originalFilesForBackend = [...fileHandler.files];
-    const audioFileForBackend = audioRecorder.audioFile;
-
-    // --- C. EXECUÇÃO (PERSISTÊNCIA + IA) ---
-    try {
+      // --- C. EXECUÇÃO (PERSISTÊNCIA + IA) ---
       abortControllerRef.current = new AbortController();
 
       // 1. Garante que existe um Chat ID (apenas se não estiver pulando persistência)
@@ -366,17 +503,15 @@ export function useChatEngine({
       audioRecorder.clearAudio();
 
       // 3. Chamada para a IA (Rota Unificada Multimodal)
-      const apiMessages = updatedMessages.map((m) => ({
-        role: m.role === "ai" ? "assistant" : "user",
-        content: m.content,
-      }));
-
       // Usa prompt padrão genérico se nenhum prompt específico foi fornecido
       const finalSystemPrompt =
         promptContent ||
         `Você é um assistente de IA especializado em saúde e medicina. Seu objetivo é ajudar profissionais de saúde e pacientes com informações precisas, análises de exames, suporte para diagnósticos e respostas a perguntas relacionadas à área médica.
 
 Sempre responda de forma clara, objetiva e em português do Brasil. Seja profissional, empático e cuidadoso ao fornecer informações médicas, lembrando sempre que suas respostas são complementares e não substituem a consulta médica presencial.`;
+      if (finalSystemPrompt.length > 12_000) {
+        throw new Error("O prompt selecionado excede o limite permitido.");
+      }
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -384,7 +519,7 @@ Sempre responda de forma clara, objetiva e em português do Brasil. Seja profiss
         body: JSON.stringify({
           messages: apiMessages,
           files: processedFilesForAI, // Envia o array de arquivos
-          model: model,
+          ...(model ? { model } : {}),
           systemPrompt: finalSystemPrompt, // Envia o prompt do sistema (ou padrão)
         }),
         signal: abortControllerRef.current.signal,
@@ -430,7 +565,7 @@ Sempre responda de forma clara, objetiva e em português do Brasil. Seja profiss
                 return newArr;
               });
             }
-          } catch (e) {
+          } catch {
             // Ignora erros de parse no stream
           }
         }
@@ -455,9 +590,24 @@ Sempre responda de forma clara, objetiva e em português do Brasil. Seja profiss
           activeChatId,
         );
       }
-    } catch (error: any) {
-      if (error.name !== "AbortError") {
+    } catch (error: unknown) {
+      if (!(error instanceof Error && error.name === "AbortError")) {
         console.error("Erro Chat:", error);
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível concluir a mensagem.",
+        );
+        setMessages((current) =>
+          current.map((message) =>
+            message.id?.startsWith("ai-loading-") && message.content === "..."
+              ? {
+                  ...message,
+                  content: "Erro ao responder. Tente novamente.",
+                }
+              : message,
+          ),
+        );
       }
     } finally {
       setLoading(false);

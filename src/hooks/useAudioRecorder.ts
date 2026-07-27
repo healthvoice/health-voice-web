@@ -9,6 +9,7 @@ export function useAudioRecorder() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -26,13 +27,23 @@ export function useAudioRecorder() {
   };
 
   const startRecording = useCallback(async () => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      return;
+    }
+
+    let stream: MediaStream | null = null;
     try {
       setAudioFile(null); // Limpa gravação anterior
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const activeStream = stream;
 
       const mimeType = getMimeType();
       const options = mimeType ? { mimeType } : undefined;
-      const recorder = new MediaRecorder(stream, options);
+      const recorder = new MediaRecorder(activeStream, options);
+      mediaStreamRef.current = activeStream;
 
       chunksRef.current = [];
 
@@ -52,7 +63,13 @@ export function useAudioRecorder() {
         setAudioFile(file);
 
         // Limpa tracks do stream (desliga luz da câmera/mic)
-        stream.getTracks().forEach((t) => t.stop());
+        activeStream.getTracks().forEach((t) => t.stop());
+        if (mediaStreamRef.current === activeStream) {
+          mediaStreamRef.current = null;
+        }
+        if (mediaRecorderRef.current === recorder) {
+          mediaRecorderRef.current = null;
+        }
       };
 
       recorder.start(500); // Salva chunks a cada 500ms
@@ -66,7 +83,7 @@ export function useAudioRecorder() {
       timerIntervalRef.current = setInterval(() => {
         if (startTimeRef.current) {
           const seconds = Math.floor(
-            (Date.now() - startTimeRef.current) / 1000
+            (Date.now() - startTimeRef.current) / 1000,
           );
           const mm = Math.floor(seconds / 60)
             .toString()
@@ -76,6 +93,10 @@ export function useAudioRecorder() {
         }
       }, 1000);
     } catch (error) {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (mediaStreamRef.current === stream) {
+        mediaStreamRef.current = null;
+      }
       console.error("Erro ao iniciar gravação:", error);
       toast.error("Permissão de microfone negada ou indisponível.");
     }
@@ -102,7 +123,24 @@ export function useAudioRecorder() {
   // Cleanup ao desmontar componente
   useEffect(() => {
     return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        if (recorder.state !== "inactive") {
+          recorder.stop();
+        }
+        mediaRecorderRef.current = null;
+      }
+
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      chunksRef.current = [];
     };
   }, []);
 
