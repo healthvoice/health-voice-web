@@ -1,5 +1,6 @@
 "use client";
 
+import { useRecordingWatchdog } from "./use-recording-watchdog";
 import { ClientProps } from "@/@types/general-client";
 import { useApiContext } from "@/context/ApiContext";
 import { useGeneralContext } from "@/context/GeneralContext";
@@ -220,6 +221,16 @@ export function AudioRecorder({
       setError(error.message);
       setCurrentStep("idle");
     },
+  });
+
+  // Gravação esquecida (H3): lembretes de duração e alerta de silêncio
+  // prolongado, com notificação do sistema — a consulta acaba e o profissional
+  // esquece de parar. Nunca interrompe a gravação sozinho.
+  useRecordingWatchdog({
+    isRecording: recorder.isRecording,
+    isPaused: recorder.isPaused,
+    duration: recorder.duration,
+    getStream: recorder.getStream,
   });
 
   useEffect(() => {

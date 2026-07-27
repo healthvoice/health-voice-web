@@ -384,6 +384,9 @@ export function useMediaRecorder(options: RecorderOptions) {
     });
   }, [state.mediaUrl, mediaType]);
 
+  /** Stream ativo — o watchdog observa o áudio para detectar silêncio (H3). */
+  const getStream = useCallback(() => streamRef.current, []);
+
   return {
     ...state,
     startRecording,
@@ -391,5 +394,6 @@ export function useMediaRecorder(options: RecorderOptions) {
     resumeRecording,
     stopRecording,
     resetRecording,
+    getStream,
   };
 }

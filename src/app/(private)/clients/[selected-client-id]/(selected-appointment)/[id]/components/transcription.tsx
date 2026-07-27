@@ -31,6 +31,49 @@ interface SpeakerConfig {
   isProfessional: boolean;
 }
 
+/**
+ * Playback navegável (H3): clicar no horário, na fala ou numa palavra volta o
+ * áudio àquele instante. O player é dono do áudio; aqui só se avisa.
+ */
+function irParaSegundo(segundo: number) {
+  window.dispatchEvent(
+    new CustomEvent("healthvoice:seek", { detail: { time: segundo } }),
+  );
+}
+
+/** Texto da fala com palavras clicáveis quando o motor forneceu os tempos. */
+function TextoDaFala({
+  texto,
+  words,
+  claro,
+}: {
+  texto: string;
+  words?: { text: string; start: number; end: number }[] | null;
+  claro: boolean;
+}) {
+  if (!words || words.length === 0) return <>{texto}</>;
+  return (
+    <>
+      {words.map((w, i) => (
+        <span
+          key={`${w.start}-${i}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            irParaSegundo(w.start);
+          }}
+          title="Ouvir a partir daqui"
+          className={cn(
+            "cursor-pointer rounded transition",
+            claro ? "hover:bg-white/25" : "hover:bg-primary/10",
+          )}
+        >
+          {w.text}{" "}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function Transcription() {
   const { selectedRecording, setSelectedRecording } = useGeneralContext();
   const { PutAPI } = useApiContext();
@@ -496,17 +539,29 @@ export function Transcription() {
                       <span className="text-xs font-semibold text-gray-600">
                         {speech.name}
                       </span>
-                      <span className="text-xs text-gray-400">{speech.t}</span>
+                      <button
+                        type="button"
+                        onClick={() => irParaSegundo(speech.startSeconds)}
+                        title="Ouvir a partir daqui"
+                        className="hover:text-primary text-xs text-gray-400 transition"
+                      >
+                        {speech.t}
+                      </button>
                     </div>
                     <div
+                      onClick={() => irParaSegundo(speech.startSeconds)}
                       className={cn(
-                        "rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
+                        "cursor-pointer rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm transition",
                         isPro
-                          ? "rounded-tr-none bg-blue-600 text-white"
-                          : "rounded-tl-none border border-gray-100 bg-white text-gray-700",
+                          ? "rounded-tr-none bg-blue-600 text-white hover:bg-blue-700"
+                          : "rounded-tl-none border border-gray-100 bg-white text-gray-700 hover:border-gray-200",
                       )}
                     >
-                      {speech.text}
+                      <TextoDaFala
+                        texto={speech.text}
+                        words={speech.words}
+                        claro={isPro}
+                      />
                     </div>
                   </div>
                 </div>

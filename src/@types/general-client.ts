@@ -41,12 +41,21 @@ export interface ReminderProps {
 }
 
 // Tipos para Gravações
+/** Palavra com tempo próprio — permite clicar na palavra e voltar o áudio. */
+export interface SpeechWord {
+  text: string;
+  start: number;
+  end: number;
+}
+
 export interface RecordingSpeakerSpeechProps {
   speakerId: string;
   transcription: string;
   recordingId: string;
   startTime: number;
   endTime: number;
+  /** Timestamps por palavra (H3). null nas consultas anteriores. */
+  words?: SpeechWord[] | null;
 }
 export interface RecordingSpeakerProps {
   id: string;

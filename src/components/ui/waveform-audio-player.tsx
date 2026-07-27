@@ -9,6 +9,24 @@ interface WaveformAudioPlayerProps {
   className?: string;
   videoDuration?: string; // Format like "0h 1m 25s" or "1m 25s" or "00:01:25"
   barCount?: number;
+  /**
+   * Picos reais da gravação (Recording.waveform, gerados pelo motor). Quando
+   * presentes, a onda é a de verdade; sem eles (acervo antigo), cai nas barras
+   * sintéticas de sempre.
+   */
+  peaks?: number[] | null;
+}
+
+/** Reamostra os picos para N barras (máximo por balde preserva os picos). */
+function resamplePeaks(peaks: number[], alvo: number): number[] {
+  if (peaks.length <= alvo) return peaks;
+  const out: number[] = [];
+  for (let i = 0; i < alvo; i++) {
+    const ini = Math.floor((i / alvo) * peaks.length);
+    const fim = Math.max(ini + 1, Math.floor(((i + 1) / alvo) * peaks.length));
+    out.push(Math.max(...peaks.slice(ini, fim)));
+  }
+  return out;
 }
 
 export function WaveformAudioPlayer({
@@ -16,6 +34,7 @@ export function WaveformAudioPlayer({
   className,
   videoDuration = "00:00:00",
   barCount = 30, // Reduced default from 45 to fit better in small spaces
+  peaks,
 }: WaveformAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -23,10 +42,16 @@ export function WaveformAudioPlayer({
   const [isReady, setIsReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Generate a stable set of random heights for the waveform
-  const [bars] = useState(() =>
-    Array.from({ length: barCount }, () => Math.floor(Math.random() * 60) + 20),
-  );
+  // Onda real quando o motor mandou os picos; barras sintéticas no acervo antigo
+  const [bars] = useState(() => {
+    if (peaks && peaks.length > 4) {
+      const amostra = resamplePeaks(peaks, Math.max(barCount, 90));
+      const maximo = Math.max(...amostra, 0.01);
+      // 8–100%: piso para silêncio continuar visível/clicável
+      return amostra.map((v) => Math.max(8, Math.round((v / maximo) * 100)));
+    }
+    return Array.from({ length: barCount }, () => Math.floor(Math.random() * 60) + 20);
+  });
 
   // Helper to parse "0h 1m 25s" or "1m 25s" or "00:01:25" etc. into seconds
   const parseDurationToSeconds = useCallback((durStr: string): number => {
@@ -106,6 +131,24 @@ export function WaveformAudioPlayer({
       audio.removeEventListener("ended", handleEnded);
     };
   }, [audioUrl]);
+
+  // Trilha IA (playback clicável): a transcrição dispara "healthvoice:seek" com
+  // {time} ao clicar numa palavra — o player pula até lá e toca.
+  useEffect(() => {
+    const handleSeekEvent = (event: Event) => {
+      const audio = audioRef.current;
+      const time = (event as CustomEvent<{ time?: number }>).detail?.time;
+      if (!audio || typeof time !== "number" || !Number.isFinite(time)) return;
+      audio.currentTime = Math.max(0, time);
+      setCurrentTime(audio.currentTime);
+      audio
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {});
+    };
+    window.addEventListener("healthvoice:seek", handleSeekEvent);
+    return () => window.removeEventListener("healthvoice:seek", handleSeekEvent);
+  }, []);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -192,7 +235,7 @@ export function WaveformAudioPlayer({
       </span>
 
       {/* Center: Waveform Bars */}
-      <div className="flex h-8 flex-1 items-center gap-[2px] overflow-hidden">
+      <div className="flex h-8 flex-1 items-center justify-between gap-[2px] overflow-hidden">
         {bars.map((height, index) => {
           // Calculate if this bar should be "active" (played past)
           const totalDur = duration > 0 ? duration : 1;
@@ -205,8 +248,11 @@ export function WaveformAudioPlayer({
               key={index}
               onClick={() => handleSeek(index)}
               className={cn(
-                "w-1 shrink-0 cursor-pointer rounded-full transition-all duration-100",
-                isActive ? "bg-blue-600" : "bg-blue-200 hover:bg-blue-400",
+                // flex-1 + teto de largura: as barras se repartem pela largura
+                // disponível (antes, w-1 fixo virava uma faixa curta à esquerda)
+                // sem engordar a ponto de virarem "bolinhas" em tela larga.
+                "min-w-[2px] max-w-[5px] flex-1 cursor-pointer rounded-full transition-all duration-100",
+                isActive ? "bg-gray-600" : "bg-gray-200 hover:bg-gray-400",
               )}
               style={{
                 height: `${height}%`,
@@ -227,7 +273,7 @@ export function WaveformAudioPlayer({
         <button
           onClick={handleRestart}
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none",
+            "flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 focus:ring-2 focus:ring-gray-500 focus:outline-none",
             currentTime > 0.5 ? "opacity-100" : "pointer-events-none opacity-0",
           )}
         >
@@ -237,7 +283,7 @@ export function WaveformAudioPlayer({
         {/* Play/Pause Button */}
         <button
           onClick={togglePlay}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-700 transition-colors hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-700 transition-colors hover:bg-gray-100 focus:ring-2 focus:ring-gray-500 focus:outline-none"
         >
           {isPlaying ? (
             <Pause size={20} fill="currentColor" className="text-gray-600" />

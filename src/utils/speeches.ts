@@ -1,4 +1,7 @@
-import { RecordingSpeakerSpeechProps } from "@/@types/general-client";
+import {
+  RecordingSpeakerSpeechProps,
+  SpeechWord,
+} from "@/@types/general-client";
 
 export type TranscriptRow = {
   id: string;
@@ -7,6 +10,10 @@ export type TranscriptRow = {
   name: string;
   index: number;
   speakerId: string;
+  /** Início em segundos — para pular o áudio ao clicar (H3). */
+  startSeconds: number;
+  /** Palavras com tempo próprio, quando o motor as fornece (H3). */
+  words?: SpeechWord[] | null;
 };
 
 export function formatTimeSecondsToMMSS(secNumber: number) {
@@ -32,5 +39,7 @@ export function buildRowsFromSpeeches(
       name: speakers.find((speaker) => speaker.id === s.speakerId)?.name ?? "",
       index: speakers.findIndex((speaker) => speaker.id === s.speakerId),
       speakerId: s.speakerId,
+      startSeconds: s.startTime,
+      words: s.words ?? null,
     }));
 }
