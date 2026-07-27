@@ -405,7 +405,7 @@ export function RequestTranscription({
                           isRequesting && "cursor-not-allowed opacity-50",
                         )}
                       >
-                        4{/* Ícone com gradiente melhorado */}
+                        {/* Ícone com gradiente melhorado */}
                         <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/40">
                           <PromptIcon
                             icon={prompt.icon}
