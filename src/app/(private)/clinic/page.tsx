@@ -17,6 +17,7 @@ import toast from "react-hot-toast";
 import { ContextoCard } from "./components/contexto-card";
 import { EspecialidadeModal } from "./components/especialidade-modal";
 import { GlossarioSecao } from "./components/glossario-secao";
+import { MapasSecao } from "./components/mapas-secao";
 import { UnidadeModal } from "./components/unidade-modal";
 
 /**
@@ -46,7 +47,7 @@ export interface Especialidade {
   _count?: { members: number };
 }
 
-type Aba = "estrutura" | "glossario";
+type Aba = "estrutura" | "glossario" | "mapas";
 
 export default function ClinicPage() {
   const { GetAPI, DeleteAPI } = useApiContext();
@@ -146,6 +147,7 @@ export default function ClinicPage() {
           [
             ["estrutura", "Estrutura"],
             ["glossario", "Glossário clínico"],
+            ["mapas", "Mapas"],
           ] as [Aba, string][]
         ).map(([valor, rotulo]) => (
           <button
@@ -328,8 +330,10 @@ export default function ClinicPage() {
             )}
           </section>
         </div>
-      ) : (
+      ) : aba === "glossario" ? (
         <GlossarioSecao especialidades={especialidades} />
+      ) : (
+        <MapasSecao especialidades={especialidades} />
       )}
 
       <UnidadeModal
