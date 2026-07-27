@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "./blocks/dropdown-menu";
 import {
+  AgendaIcon,
   AnalyticsIcon,
   ChatBusinessIcon,
   ClinicIcon,
@@ -45,6 +46,7 @@ const primaryNav = [
     icon: ContactsIcon,
     expandable: true,
   },
+  { href: "/agenda", label: "Agenda", icon: AgendaIcon },
   { href: "/reminders", label: "Lembretes", icon: NotesIcon },
   { href: "/studies", label: "Estudos", icon: StudyIcon },
   { href: "/others", label: "Outros", icon: OtherIcon },

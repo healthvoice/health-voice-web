@@ -730,3 +730,31 @@ export const ClinicIcon: React.FC<IconProps> = ({ className, ...props }) => (
     />
   </svg>
 );
+
+/** Agenda (H2) — calendário no mesmo traço dos demais ícones. */
+export const AgendaIcon: React.FC<IconProps> = ({ className, ...props }) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn("h-4 w-4", className)}
+    {...props}
+  >
+    <path
+      opacity="0.4"
+      d="M3.5 9.5C3.5 6.73858 5.73858 4.5 8.5 4.5H15.5C18.2614 4.5 20.5 6.73858 20.5 9.5V16C20.5 18.7614 18.2614 21 15.5 21H8.5C5.73858 21 3.5 18.7614 3.5 16V9.5Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <path
+      d="M8 3V6M16 3V6M3.5 9.5H20.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    <circle cx="8.5" cy="13.5" r="1" fill="currentColor" />
+    <circle cx="12" cy="13.5" r="1" fill="currentColor" />
+  </svg>
+);
