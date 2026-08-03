@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 const ACCESS_TOKEN_KEY = "hv_access_token";
 const REFRESH_TOKEN_KEY = "hv_refresh_token";
 
-// 365 dias em segundos (mesma validade do accessToken JWT na API)
-const ACCESS_TOKEN_MAX_AGE = 365 * 24 * 60 * 60;
-// 365 dias em segundos (refreshToken JWT na API dura ~10 anos, mas limitamos o cookie a 1 ano)
-const REFRESH_TOKEN_MAX_AGE = 365 * 24 * 60 * 60;
+// Mesma validade do accessToken JWT na API: 1 hora.
+const ACCESS_TOKEN_MAX_AGE = 60 * 60;
+// Mesma validade do refreshToken JWT na API: 30 dias.
+const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60;
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -22,7 +22,7 @@ export async function setAuthCookies(
   const cookieStore = await cookies();
 
   cookieStore.set(ACCESS_TOKEN_KEY, accessToken, {
-    httpOnly: false, // JS precisa ler para enviar no header Authorization
+    httpOnly: true,
     secure: isProduction,
     sameSite: "lax",
     path: "/",
@@ -61,7 +61,7 @@ export async function clearAuthCookies() {
   const cookieStore = await cookies();
 
   cookieStore.set(ACCESS_TOKEN_KEY, "", {
-    httpOnly: false,
+    httpOnly: true,
     secure: isProduction,
     sameSite: "lax",
     path: "/",

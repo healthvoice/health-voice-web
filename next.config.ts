@@ -11,12 +11,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-
-  async rewrites() {
-    const target = process.env.API_URL_INTERNAL;
-    if (!target) return [];
-    return [{ source: "/api-backend/:path*", destination: `${target}/:path*` }];
-  },
 };
 
 export default nextConfig;

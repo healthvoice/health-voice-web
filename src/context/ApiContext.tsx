@@ -4,7 +4,6 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { createContext, useContext, useRef } from "react";
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL;
-const ACCESS_TOKEN_COOKIE = "hv_access_token";
 
 interface ApiContextProps {
   PostAPI: (
@@ -39,20 +38,9 @@ interface ProviderProps {
   children: React.ReactNode;
 }
 
-/**
- * Lê o accessToken do cookie regular (acessível por JS).
- */
-function getAccessToken(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(
-    new RegExp("(?:^|; )" + ACCESS_TOKEN_COOKIE + "=([^;]*)"),
-  );
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
 export const ApiContextProvider = ({ children }: ProviderProps) => {
   const isRefreshing = useRef(false);
-  const refreshPromise = useRef<Promise<string | null> | null>(null);
+  const refreshPromise = useRef<Promise<boolean> | null>(null);
 
   const api = axios.create({
     baseURL,
@@ -62,7 +50,7 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
    * Tenta renovar o access token via Route Handler /api/auth/refresh.
    * Retorna o novo access token ou null se falhar.
    */
-  async function refreshAccessToken(): Promise<string | null> {
+  async function refreshAccessToken(): Promise<boolean> {
     // Se já está fazendo refresh, retorna a promise em andamento
     if (isRefreshing.current && refreshPromise.current) {
       return refreshPromise.current;
@@ -83,17 +71,13 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
             credentials: "include",
           });
           window.location.href = "/login";
-          return null;
+          return false;
         }
 
-        // Os novos tokens já foram setados nos cookies pelo Route Handler
-        // Agora lemos o novo accessToken do cookie
-        // Pequeno delay para garantir que o cookie foi atualizado
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        return getAccessToken();
+        return true;
       } catch {
         window.location.href = "/login";
-        return null;
+        return false;
       } finally {
         isRefreshing.current = false;
         refreshPromise.current = null;
@@ -102,21 +86,6 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
 
     return refreshPromise.current;
   }
-
-  // Interceptor de request: injeta token no header
-  api.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-      // Verifica se a request precisa de auth (marcado via metadata)
-      if ((config as any)._requiresAuth) {
-        const token = getAccessToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      }
-      return config;
-    },
-    (error) => Promise.reject(error),
-  );
 
   // Interceptor de response: auto-refresh em 401
   api.interceptors.response.use(
@@ -135,10 +104,10 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
       ) {
         originalRequest._retry = true;
 
-        const newToken = await refreshAccessToken();
+        const refreshed = await refreshAccessToken();
 
-        if (newToken) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        if (refreshed) {
+          originalRequest.headers.delete("Authorization");
           return api(originalRequest);
         }
 
@@ -150,20 +119,13 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
     },
   );
 
-  function buildHeaders(auth: boolean, isFormData = false) {
+  function buildHeaders(_auth: boolean, isFormData = false) {
     const headers: Record<string, string> = {
       "ngrok-skip-browser-warning": "any",
     };
 
     if (!isFormData) {
       headers["Content-Type"] = "application/json";
-    }
-
-    if (auth) {
-      const token = getAccessToken();
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
     }
 
     return headers;
@@ -259,7 +221,9 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
   }
 
   return (
-    <ApiContext.Provider value={{ PostAPI, GetAPI, PutAPI, PatchAPI, DeleteAPI }}>
+    <ApiContext.Provider
+      value={{ PostAPI, GetAPI, PutAPI, PatchAPI, DeleteAPI }}
+    >
       {children}
     </ApiContext.Provider>
   );

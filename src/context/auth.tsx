@@ -13,8 +13,6 @@ import { endSession, startSession } from "../services/analyticsService";
 import { useApiContext } from "./ApiContext";
 import { useTrackingContext } from "./TrackingContext";
 
-const ACCESS_TOKEN_COOKIE = "hv_access_token";
-
 export interface User {
   id: string;
   email: string;
@@ -56,14 +54,6 @@ export function useSession() {
   return ctx;
 }
 
-/**
- * Verifica se existe o cookie hv_access_token (client-side).
- */
-function hasAccessToken(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.includes(ACCESS_TOKEN_COOKIE + "=");
-}
-
 export function SessionProvider({ children }: PropsWithChildren) {
   const { GetAPI, PostAPI } = useApiContext();
   const { sessionId, setSessionId } = useTrackingContext();
@@ -80,8 +70,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
    * Verifica se a sessão está ativa (cookie existe).
    */
   const checkSession = useCallback((): boolean => {
-    return hasAccessToken();
-  }, []);
+    return profile !== null;
+  }, [profile]);
 
   /**
    * Força o logout completo — chama Route Handler que limpa cookies.
@@ -129,11 +119,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setLoading(true);
 
       try {
-        if (!hasAccessToken()) {
-          setProfile(null);
-          return;
-        }
-
         const response = await GetAPI("/user", true);
 
         if (response.status === 200) {
@@ -217,14 +202,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       if (!mounted) return;
 
       try {
-        if (hasAccessToken()) {
-          await Promise.all([
-            handleGetProfile(),
-            handleGetAvailableRecording(),
-          ]);
-        } else {
-          setLoading(false);
-        }
+        await Promise.all([handleGetProfile(), handleGetAvailableRecording()]);
       } catch (error) {
         console.error("❌ Erro na inicialização:", error);
         if (mounted) {

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import OpenAI from "openai";
 import {
   Dispatch,
   SetStateAction,
@@ -12,24 +11,10 @@ import {
 import fixWebmDuration from "webm-duration-fix";
 import { Attachment, Message, Prompt } from "./types";
 
-/* ================= OpenRouter via OpenAI SDK ================= */
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!,
-  dangerouslyAllowBrowser: true, // em prod, prefira proxy/rota server-side
-  defaultHeaders: {
-    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost",
-    "X-Title": process.env.NEXT_PUBLIC_APP_NAME || "Chat Widget",
-  },
-});
-
 /** Modelo-alvo: tente um Gemini com ÁUDIO habilitado na página de modelos.
  * Se este ID específico não aceitar audio, o fallback (Whisper) entra. */
 const MODEL =
   process.env.NEXT_PUBLIC_OPENROUTER_MODEL || "google/gemini-2.5-flash";
-
-/** Fallback de transcrição (OpenRouter) */
-const WHISPER_MODEL = "openai/whisper-large-v3";
 
 /* ================= Types do payload ================= */
 type TextPart = { type: "text"; text: string };
@@ -198,16 +183,6 @@ export function useSectionChat({
     return out;
   }
 
-  /* ===== Fallback: transcrever com Whisper ===== */
-  async function transcribeWithWhisper(audio: File): Promise<string> {
-    const resp = await openai.audio.transcriptions.create({
-      model: WHISPER_MODEL,
-      file: audio,
-      response_format: "text",
-    } as any);
-    return typeof resp === "string" ? resp : ((resp as any)?.text ?? "");
-  }
-
   /* ===== Enviar ===== */
   async function handleSendMessage(overrideContent?: string) {
     // Captura texto e arquivos no início para enviar os dois juntos (não perder texto ao ter áudio pendente)
@@ -236,7 +211,9 @@ export function useSectionChat({
     if (hasAttachments) {
       messagesToAdd.push({
         role: "user",
-        content: filesToSend.some((f) => f.type.startsWith("audio/")) ? "Mensagem de Áudio" : "Mensagem com anexo",
+        content: filesToSend.some((f) => f.type.startsWith("audio/"))
+          ? "Mensagem de Áudio"
+          : "Mensagem com anexo",
         attachments,
         ...(filesToSend.length === 1 && filesToSend[0].type.startsWith("audio/")
           ? {
@@ -262,7 +239,6 @@ export function useSectionChat({
 
     /* Construct Payload for API */
     const parts: Array<TextPart | ImagePart | AudioPart> = [];
-    let attemptedAudio = false;
 
     // Process all files (áudio + outros)
     for (const file of filesToSend) {
@@ -285,7 +261,6 @@ export function useSectionChat({
           type: "image_url",
           image_url: { url: dataUrl },
         });
-        attemptedAudio = true;
       } else {
         parts.push({
           type: "text",
@@ -297,7 +272,10 @@ export function useSectionChat({
     // Sempre incluir texto quando o usuário digitou; senão, mensagem padrão se só houver arquivos
     if (textToSend) {
       parts.push({ type: "text", text: textToSend });
-    } else if (filesToSend.length > 0 && !parts.some((p) => p.type === "text")) {
+    } else if (
+      filesToSend.length > 0 &&
+      !parts.some((p) => p.type === "text")
+    ) {
       parts.push({
         type: "text",
         text: "Por favor, analise os arquivos enviados.",
@@ -320,68 +298,62 @@ export function useSectionChat({
       abortControllerRef.current = controller;
       streamBufferRef.current = "";
 
-      const completion = await openai.chat.completions.create(
-        { model: MODEL, stream: true, messages: msgs as any },
-        { signal: controller.signal },
-      );
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: MODEL, messages: msgs }),
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        const errorBody = await response.text();
+        throw new Error(errorBody || `Falha no chat (${response.status})`);
+      }
 
-      for await (const chunk of completion as any) {
-        const delta = chunk?.choices?.[0]?.delta?.content;
-        if (!delta) continue;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let pending = "";
 
-        if (typeof delta === "string") {
-          streamBufferRef.current += delta;
-        } else if (Array.isArray(delta)) {
-          for (const d of delta) {
-            if (typeof d === "string") streamBufferRef.current += d;
-            else if (typeof d?.text === "string")
-              streamBufferRef.current += d.text;
+      while (true) {
+        const { value, done } = await reader.read();
+        pending += decoder.decode(value, { stream: !done });
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+
+          let chunk: any;
+          try {
+            chunk = JSON.parse(payload);
+          } catch {
+            continue;
           }
+          const delta = chunk?.choices?.[0]?.delta?.content;
+          if (!delta) continue;
+
+          if (typeof delta === "string") {
+            streamBufferRef.current += delta;
+          } else if (Array.isArray(delta)) {
+            for (const d of delta) {
+              if (typeof d === "string") streamBufferRef.current += d;
+              else if (typeof d?.text === "string")
+                streamBufferRef.current += d.text;
+            }
+          }
+          flushToUI();
         }
-        flushToUI();
+
+        if (done) break;
       }
       flushToUI();
       return streamBufferRef.current;
     };
 
     try {
-      const firstText = await runOnce(messagesForAPI);
-
-      // Fallback para áudio se necessário
-      if (attemptedAudio && looksLikeNoAudioSupport(firstText)) {
-        // Encontra o primeiro arquivo de áudio para transcrever (limitação do fallback simples)
-        // Idealmente transcreveria todos, mas vamos focar no primeiro para fallback
-        const audioFile = filesToSend.find((f) => f.type.startsWith("audio/"));
-
-        if (audioFile) {
-          const transcript = await transcribeWithWhisper(audioFile);
-          const base2 = buildHistoryForAPI();
-
-          let previousText = "";
-          // Tenta recuperar o texto que o usuário mandou junto
-          const textPart = parts.find((p) => p.type === "text") as
-            | TextPart
-            | undefined;
-          if (textPart) previousText = textPart.text;
-
-          const prompt =
-            previousText.length > 0
-              ? `${previousText}\n\nTranscrição do áudio (ASR):\n${transcript}`
-              : `Transcreva e responda ao áudio:\n${transcript}`;
-
-          // Se tiver imagens, mantemos? O fallback complexo exigiria reconstruir tudo.
-          // Simplificação: manda texto + transcrição se falhou o audio nativo.
-          // Recupera imagens se houver
-          const imageParts = parts.filter((p) => p.type === "image_url");
-
-          const content: any[] = [
-            { type: "text", text: prompt },
-            ...imageParts,
-          ];
-
-          await runOnce([...base2, { role: "user", content }]);
-        }
-      }
+      await runOnce(messagesForAPI);
     } catch (err) {
       console.error("OpenRouter stream error:", err);
       setMessages((prev) =>

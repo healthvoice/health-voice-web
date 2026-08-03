@@ -24,6 +24,7 @@ export function useRecordingUpload() {
           {
             fileName: `recording-${Date.now()}.${extension}`, // e.g., "recording-1234567890.mp3"
             contentType: mimeType, // "audio/mpeg" for audio, "video/webm" for video
+            contentLength: blob.size,
           },
           true, // Requires authentication
         );

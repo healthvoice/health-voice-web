@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/require-api-user";
 
 // Helper para transcrever áudio usando um modelo rápido (Gemini Flash)
 async function transcribeAudio(
   audioBase64: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> {
   try {
     const response = await fetch(
@@ -30,7 +31,7 @@ async function transcribeAudio(
             },
           ],
         }),
-      }
+      },
     );
 
     if (!response.ok) return "";
@@ -44,8 +45,12 @@ async function transcribeAudio(
 
 export async function POST(req: Request) {
   try {
+    if (!(await requireApiUser())) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const { messages, model, files, systemPrompt } = await req.json();
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPEN_ROUTER_KEY;
 
     if (!apiKey) {
       return NextResponse.json({ error: "API Key ausente" }, { status: 500 });
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
 
     // Monta mensagens de sistema
     const systemMessages: Array<{ role: string; content: string }> = [];
-    
+
     // Adiciona prompt do sistema se fornecido
     if (systemPrompt && systemPrompt.trim()) {
       systemMessages.push({
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
         content: systemPrompt.trim(),
       });
     }
-    
+
     // Adiciona contexto de data/hora
     const timeContextMessage = {
       role: "system",
@@ -196,7 +201,8 @@ export async function POST(req: Request) {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "HTTP-Referer":
+            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
           "X-Title": "Health Voice",
         },
         body: JSON.stringify({
@@ -204,14 +210,14 @@ export async function POST(req: Request) {
           messages: finalMessages,
           stream: true,
         }),
-      }
+      },
     );
 
     if (!response.ok) {
       const err = await response.text();
       return NextResponse.json(
         { error: `Erro OpenRouter: ${err}` },
-        { status: response.status }
+        { status: response.status },
       );
     }
 

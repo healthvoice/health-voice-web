@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/require-api-user";
 
 export async function POST(req: Request) {
   try {
+    if (!(await requireApiUser())) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const { messages } = await req.json();
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPEN_ROUTER_KEY;
 
     if (!apiKey) {
       return NextResponse.json({ error: "API Key ausente" }, { status: 500 });
@@ -19,7 +24,8 @@ export async function POST(req: Request) {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "HTTP-Referer":
+            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
           "X-Title": "Health Voice",
         },
         body: JSON.stringify({
@@ -38,14 +44,14 @@ export async function POST(req: Request) {
             },
           ],
         }),
-      }
+      },
     );
 
     if (!response.ok) {
       const err = await response.text();
       return NextResponse.json(
         { error: `Erro OpenRouter: ${err}` },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
