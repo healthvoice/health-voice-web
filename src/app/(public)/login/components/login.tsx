@@ -33,6 +33,11 @@ const FormSchema = z.object({
 
 type FormData = z.infer<typeof FormSchema>;
 
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+const APPLE_CLIENT_ID = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || "";
+const HAS_GOOGLE_LOGIN = GOOGLE_CLIENT_ID.length > 0;
+const HAS_APPLE_LOGIN = APPLE_CLIENT_ID.length > 0;
+
 // Declaração de tipo para a Apple Sign-In JS SDK
 declare global {
   interface Window {
@@ -85,41 +90,45 @@ const SignIn = ({ onClick }: SignInProps) => {
 
   // Inicializar Google Identity Services e Apple Sign-In SDK
   useEffect(() => {
-    // Carrega o Google Identity Services
-    const googleScript = document.createElement("script");
-    googleScript.src = "https://accounts.google.com/gsi/client";
-    googleScript.async = true;
-    googleScript.defer = true;
-    document.head.appendChild(googleScript);
+    let googleScript: HTMLScriptElement | undefined;
+    let appleScript: HTMLScriptElement | undefined;
 
-    // Carrega o Apple Sign-In JS SDK
-    const appleScript = document.createElement("script");
-    appleScript.src =
-      "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
-    appleScript.async = true;
-    appleScript.onload = () => {
-      if (window.AppleID) {
-        window.AppleID.auth.init({
-          clientId: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || "",
-          scope: "name email",
-          redirectURI: window.location.origin,
-          usePopup: true,
-        });
-      }
-    };
-    document.head.appendChild(appleScript);
+    if (HAS_GOOGLE_LOGIN) {
+      googleScript = document.createElement("script");
+      googleScript.src = "https://accounts.google.com/gsi/client";
+      googleScript.async = true;
+      googleScript.defer = true;
+      document.head.appendChild(googleScript);
+    }
+
+    if (HAS_APPLE_LOGIN) {
+      appleScript = document.createElement("script");
+      appleScript.src =
+        "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
+      appleScript.async = true;
+      appleScript.onload = () => {
+        if (window.AppleID) {
+          window.AppleID.auth.init({
+            clientId: APPLE_CLIENT_ID,
+            scope: "name email",
+            redirectURI: window.location.origin,
+            usePopup: true,
+          });
+        }
+      };
+      document.head.appendChild(appleScript);
+    }
 
     return () => {
       // Cleanup: remove os scripts se o componente desmontar
-      if (googleScript.parentNode) {
+      if (googleScript?.parentNode) {
         googleScript.parentNode.removeChild(googleScript);
       }
-      if (appleScript.parentNode) {
+      if (appleScript?.parentNode) {
         appleScript.parentNode.removeChild(appleScript);
       }
     };
   }, []);
-
 
   // Login com email/senha
   const handleLogin = async (data: FormData) => {
@@ -157,11 +166,11 @@ const SignIn = ({ onClick }: SignInProps) => {
 
       // Login bem-sucedido — cookies já foram setados pelo Route Handler
       await handleGetProfile(true);
-      
+
       // Aguardar um pequeno delay para garantir que sessionId foi atualizado no contexto
       // O handleGetProfile cria a sessão, mas o contexto pode levar um momento para atualizar
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // Rastrear tempo de login e enviar LOGIN_COMPLETED
       // Nota: Enviamos mesmo sem sessionId porque o backend usa userId do token JWT
       if (loginStartTimeRef.current) {
@@ -180,9 +189,9 @@ const SignIn = ({ onClick }: SignInProps) => {
                 hasSessionId: !!sessionId,
               },
             },
-            true
+            true,
           );
-          
+
           if (process.env.NODE_ENV === "development") {
             console.log("✅ [Tracking] Login completado rastreado:", {
               duration: `${loginDuration}ms`,
@@ -196,7 +205,7 @@ const SignIn = ({ onClick }: SignInProps) => {
           }
         }
       }
-      
+
       toast.success("Login efetuado com sucesso!");
       router.push("/");
     } catch (err) {
@@ -215,16 +224,16 @@ const SignIn = ({ onClick }: SignInProps) => {
     setIsLoggingIn(true);
     try {
       // Verifica se o Google Identity Services está carregado
-      if (typeof window === 'undefined' || !(window as any).google) {
-        toast.error("Google Sign-In não está disponível no momento. Aguarde alguns segundos e tente novamente.");
+      if (typeof window === "undefined" || !(window as any).google) {
+        toast.error(
+          "Google Sign-In não está disponível no momento. Aguarde alguns segundos e tente novamente.",
+        );
         setIsLoggingIn(false);
         return;
       }
 
       const google = (window as any).google;
-      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-      if (!clientId) {
+      if (!GOOGLE_CLIENT_ID) {
         toast.error("Configuração do Google Sign-In não encontrada.");
         setIsLoggingIn(false);
         return;
@@ -232,7 +241,7 @@ const SignIn = ({ onClick }: SignInProps) => {
 
       // Inicializa o Google Identity Services
       google.accounts.id.initialize({
-        client_id: clientId,
+        client_id: GOOGLE_CLIENT_ID,
         callback: async (response: any) => {
           if (!response.credential) {
             toast.error("Não foi possível obter o token do Google.");
@@ -259,10 +268,10 @@ const SignIn = ({ onClick }: SignInProps) => {
             }
 
             await handleGetProfile(true);
-            
+
             // Aguardar um pequeno delay para garantir que sessionId foi atualizado no contexto
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
             // Rastrear tempo de login e enviar LOGIN_COMPLETED
             // Nota: Enviamos mesmo sem sessionId porque o backend usa userId do token JWT
             if (loginStartTimeRef.current) {
@@ -279,9 +288,9 @@ const SignIn = ({ onClick }: SignInProps) => {
                       hasSessionId: !!sessionId,
                     },
                   },
-                  true
+                  true,
                 );
-                
+
                 if (process.env.NODE_ENV === "development") {
                   console.log("✅ [Tracking] Login completado rastreado:", {
                     duration: `${loginDuration}ms`,
@@ -295,7 +304,7 @@ const SignIn = ({ onClick }: SignInProps) => {
                 }
               }
             }
-            
+
             toast.success("Login efetuado com sucesso!");
             router.push("/");
           } catch (error) {
@@ -310,20 +319,19 @@ const SignIn = ({ onClick }: SignInProps) => {
 
       // Renderiza um botão invisível e clica nele programaticamente
       if (googleButtonRef.current) {
-        google.accounts.id.renderButton(
-          googleButtonRef.current,
-          {
-            theme: "outline",
-            size: "large",
-            text: "signin_with",
-            width: "100%",
-            type: "standard",
-          }
-        );
+        google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "large",
+          text: "signin_with",
+          width: "100%",
+          type: "standard",
+        });
 
         // Aguarda a renderização e então clica no botão
         setTimeout(() => {
-          const button = googleButtonRef.current?.querySelector('div[role="button"]') as HTMLElement;
+          const button = googleButtonRef.current?.querySelector(
+            'div[role="button"]',
+          ) as HTMLElement;
           if (button) {
             button.click();
           } else {
@@ -341,7 +349,7 @@ const SignIn = ({ onClick }: SignInProps) => {
 
   // Apple Sign-In via Apple JS SDK
   const handleAppleSignIn = async () => {
-    if (!window.AppleID) {
+    if (!APPLE_CLIENT_ID || !window.AppleID) {
       toast.error("Apple Sign-In não está disponível no momento.");
       return;
     }
@@ -376,10 +384,10 @@ const SignIn = ({ onClick }: SignInProps) => {
       }
 
       await handleGetProfile(true);
-      
+
       // Aguardar um pequeno delay para garantir que sessionId foi atualizado no contexto
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // Rastrear tempo de login e enviar LOGIN_COMPLETED
       // Nota: Enviamos mesmo sem sessionId porque o backend usa userId do token JWT
       if (loginStartTimeRef.current) {
@@ -396,9 +404,9 @@ const SignIn = ({ onClick }: SignInProps) => {
                 hasSessionId: !!sessionId,
               },
             },
-            true
+            true,
           );
-          
+
           if (process.env.NODE_ENV === "development") {
             console.log("✅ [Tracking] Login completado rastreado:", {
               duration: `${loginDuration}ms`,
@@ -412,7 +420,7 @@ const SignIn = ({ onClick }: SignInProps) => {
           }
         }
       }
-      
+
       toast.success("Login efetuado com sucesso!");
       router.push("/");
     } catch (error) {
@@ -477,7 +485,7 @@ const SignIn = ({ onClick }: SignInProps) => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute bottom-3 right-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  className="absolute right-3 bottom-3 text-gray-400 hover:text-gray-600 focus:outline-none"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -489,7 +497,7 @@ const SignIn = ({ onClick }: SignInProps) => {
 
         <div className="flex justify-end">
           <span
-            className="cursor-pointer text-sm text-gray-500 transition hover:text-primary hover:underline"
+            className="hover:text-primary cursor-pointer text-sm text-gray-500 transition hover:underline"
             onClick={onClick}
             data-tracking-id="login-forgot-password-link"
           >
@@ -501,7 +509,7 @@ const SignIn = ({ onClick }: SignInProps) => {
           type="submit"
           disabled={isLoggingIn}
           data-tracking-id="login-submit-button"
-          className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="bg-primary flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoggingIn ? (
             <>
@@ -513,58 +521,70 @@ const SignIn = ({ onClick }: SignInProps) => {
           )}
         </button>
 
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gray-200" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-gray-500">ou entre com</span>
-          </div>
-        </div>
+        {(HAS_GOOGLE_LOGIN || HAS_APPLE_LOGIN) && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">
+                  ou entre com
+                </span>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="relative h-11">
-            {/* Botão customizado com estilo original */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={isLoggingIn}
-              data-tracking-id="login-google-button"
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white font-medium text-gray-700 transition hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50"
+            <div
+              className={`grid gap-3 ${HAS_GOOGLE_LOGIN && HAS_APPLE_LOGIN ? "grid-cols-2" : "grid-cols-1"}`}
             >
-              <Image
-                src="/icons/google-login.png"
-                alt="Google"
-                width={20}
-                height={20}
-                className="h-5 w-5"
-              />
-              Google
-            </button>
-            {/* Container oculto para o botão do Google (usado internamente) */}
-            <div 
-              ref={googleButtonRef}
-              className="absolute inset-0 opacity-0 pointer-events-none overflow-hidden"
-              style={{ zIndex: -1 }}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleAppleSignIn}
-            disabled={isLoggingIn}
-            data-tracking-id="login-apple-button"
-            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-800 bg-gradient-to-br from-gray-800 to-gray-950 font-medium text-white transition hover:from-gray-700 hover:to-gray-900 disabled:opacity-50"
-          >
-            <Image
-              src="/icons/apple-login.png"
-              alt="Apple"
-              width={20}
-              height={20}
-              className="h-max object-contain w-4.5 brightness-0 invert"
-            />
-            Apple
-          </button>
-        </div>
+              {HAS_GOOGLE_LOGIN && (
+                <div className="relative h-11">
+                  {/* Botão customizado com estilo original */}
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={isLoggingIn}
+                    data-tracking-id="login-google-button"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <Image
+                      src="/icons/google-login.png"
+                      alt="Google"
+                      width={20}
+                      height={20}
+                      className="h-5 w-5"
+                    />
+                    Google
+                  </button>
+                  {/* Container oculto para o botão do Google (usado internamente) */}
+                  <div
+                    ref={googleButtonRef}
+                    className="pointer-events-none absolute inset-0 overflow-hidden opacity-0"
+                    style={{ zIndex: -1 }}
+                  />
+                </div>
+              )}
+              {HAS_APPLE_LOGIN && (
+                <button
+                  type="button"
+                  onClick={handleAppleSignIn}
+                  disabled={isLoggingIn}
+                  data-tracking-id="login-apple-button"
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-800 bg-gradient-to-br from-gray-800 to-gray-950 font-medium text-white transition hover:from-gray-700 hover:to-gray-900 disabled:opacity-50"
+                >
+                  <Image
+                    src="/icons/apple-login.png"
+                    alt="Apple"
+                    width={20}
+                    height={20}
+                    className="h-max w-4.5 object-contain brightness-0 invert"
+                  />
+                  Apple
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </form>
     </Form>
   );

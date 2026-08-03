@@ -1,6 +1,5 @@
 "use client";
 import Image from "next/image";
-import Link from "next/link";
 import { useState } from "react";
 import { usePageView } from "@/hooks/usePageView";
 import ForgotPassword from "./components/forgot";
@@ -9,7 +8,7 @@ import LoginAnimation from "./components/LoginAnimation";
 
 export default function Login() {
   const [forgot, setForgot] = useState<boolean>(false);
-  
+
   // Tracking de visualização de tela
   usePageView();
 
@@ -69,30 +68,17 @@ export default function Login() {
               <SignIn onClick={() => setForgot(true)} />
             )}
 
-            <div className="mt-8 text-center text-sm text-gray-600">
-              {!forgot && (
-                <p>
-                  Não tem uma conta?{" "}
-                  <Link
-                    href="/register"
-                    data-tracking-id="login-register-link"
-                    data-tracking-destination="/register"
-                    className="font-semibold text-primary hover:text-blue-700 transition-colors"
-                  >
-                    Cadastre-se
-                  </Link>
-                </p>
-              )}
-              {forgot && (
+            {forgot && (
+              <div className="mt-8 text-center text-sm text-gray-600">
                 <button
                   onClick={() => setForgot(false)}
                   data-tracking-id="login-back-to-login-button"
-                  className="font-semibold text-primary hover:text-blue-700 transition-colors"
+                  className="text-primary font-semibold transition-colors hover:text-blue-700"
                 >
                   Voltar ao login
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
