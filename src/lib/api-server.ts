@@ -3,7 +3,7 @@
  * Usado pelos Route Handlers de auth.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.API_URL_INTERNAL || process.env.NEXT_PUBLIC_API_URL;
 
 export async function backendFetch(
   path: string,
