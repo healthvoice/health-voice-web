@@ -2,6 +2,7 @@
 "use client";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { createContext, useContext, useRef } from "react";
+import { isPublicRoute } from "@/lib/public-routes";
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -46,6 +47,12 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
     baseURL,
   });
 
+  function redirectToLogin() {
+    if (!isPublicRoute(window.location.pathname)) {
+      window.location.replace("/login");
+    }
+  }
+
   /**
    * Tenta renovar o access token via Route Handler /api/auth/refresh.
    * Retorna o novo access token ou null se falhar.
@@ -70,13 +77,13 @@ export const ApiContextProvider = ({ children }: ProviderProps) => {
             method: "POST",
             credentials: "include",
           });
-          window.location.href = "/login";
+          redirectToLogin();
           return false;
         }
 
         return true;
       } catch {
-        window.location.href = "/login";
+        redirectToLogin();
         return false;
       } finally {
         isRefreshing.current = false;

@@ -9,7 +9,9 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import { endSession, startSession } from "../services/analyticsService";
+import { isPublicRoute } from "@/lib/public-routes";
 import { useApiContext } from "./ApiContext";
 import { useTrackingContext } from "./TrackingContext";
 
@@ -55,6 +57,7 @@ export function useSession() {
 }
 
 export function SessionProvider({ children }: PropsWithChildren) {
+  const pathname = usePathname();
   const { GetAPI, PostAPI } = useApiContext();
   const { sessionId, setSessionId } = useTrackingContext();
   const [loading, setLoading] = useState(true);
@@ -196,6 +199,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
    * Inicialização do provider.
    */
   useEffect(() => {
+    if (isPublicRoute(pathname)) {
+      setLoading(false);
+      setAvailabilityLoaded(true);
+      return;
+    }
+
     let mounted = true;
 
     const initializeSession = async () => {
@@ -220,7 +229,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       mounted = false;
       clearTimeout(initTimeout);
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <SessionContext.Provider
