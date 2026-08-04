@@ -114,6 +114,7 @@ interface ProviderProps {
 export const GeneralContextProvider = ({ children }: ProviderProps) => {
   const { GetAPI } = useApiContext();
   const { profile } = useSession();
+  const canLoadClinicalContent = !!profile && profile.role !== "COMPANY_ADMIN";
 
   // --- Estados para Gravações ---
   const [recordings, setRecordings] = useState<RecordingDetailsProps[]>([]);
@@ -308,32 +309,31 @@ export const GeneralContextProvider = ({ children }: ProviderProps) => {
   }, [GetAPI, remindersFilters]); // Depende do filtro
 
   useEffect(() => {
-    if (profile) {
+    if (canLoadClinicalContent) {
       GetRecordings();
-      GetClients();
     } else {
       setRecordings([]);
-      setClients([]);
+      setIsGettingRecordings(false);
     }
-  }, [profile]);
+  }, [recordingsFilters, GetRecordings, canLoadClinicalContent]);
 
   useEffect(() => {
-    if (profile) {
-      GetRecordings();
-    }
-  }, [recordingsFilters, GetRecordings, profile]);
-
-  useEffect(() => {
-    if (profile) {
+    if (canLoadClinicalContent) {
       GetClients();
+    } else {
+      setClients([]);
+      setIsGettingClients(false);
     }
-  }, [clientsFilters, GetClients, profile]);
+  }, [clientsFilters, GetClients, canLoadClinicalContent]);
 
   useEffect(() => {
-    if (profile) {
+    if (canLoadClinicalContent) {
       GetReminders();
+    } else {
+      setReminders([]);
+      setIsGettingReminders(false);
     }
-  }, [remindersFilters, GetReminders, profile]);
+  }, [remindersFilters, GetReminders, canLoadClinicalContent]);
 
   return (
     <GeneralContext.Provider

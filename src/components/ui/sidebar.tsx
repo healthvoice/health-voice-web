@@ -221,6 +221,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const { clearSession, profile } = useSession();
   const { isController } = useClinic();
+  const isDirection = profile?.role === "COMPANY_ADMIN" || isController;
+  const visiblePrimaryNav = isDirection ? [] : primaryNav;
   const { modoApresentacao, alternar } = useApresentacao();
   const { selectedClient, selectedRecording } = useGeneralContext();
   const [appUrl, setAppUrl] = useState<string>("");
@@ -272,9 +274,9 @@ export function Sidebar() {
         <div className="flex shrink-0 items-center pt-4 pb-2">
           <button
             type="button"
-            onClick={() => handleNavClick("/")}
+            onClick={() => handleNavClick(isDirection ? "/clinic" : "/")}
             data-tracking-id="sidebar-logo-home"
-            data-tracking-destination="/"
+            data-tracking-destination={isDirection ? "/clinic" : "/"}
             className="focus:outline-none"
           >
             <Image
@@ -288,19 +290,21 @@ export function Sidebar() {
         </div>
 
         {/* CTA */}
-        <div className="px-4 pb-1">
-          <AudioRecorder
-            forceType="CLIENT"
-            customLabel="Nova consulta"
-            buttonClassName="w-full justify-center flex flex-row gap-2 items-center justify-center py-1 gap-2 bg-white text-primary font-bold text-lg rounded-xl shadow-lg shadow-black/10 hover:bg-white/95 transition-all duration-200"
-          />
-        </div>
+        {!isDirection && (
+          <div className="px-4 pb-1">
+            <AudioRecorder
+              forceType="CLIENT"
+              customLabel="Nova consulta"
+              buttonClassName="w-full justify-center flex flex-row gap-2 items-center justify-center py-1 gap-2 bg-white text-primary font-bold text-lg rounded-xl shadow-lg shadow-black/10 hover:bg-white/95 transition-all duration-200"
+            />
+          </div>
+        )}
 
         {/* Navigation */}
         <div className="scrollbar-hide flex flex-1 flex-col overflow-y-auto px-3 pt-4 pb-3">
           {/* Primary */}
           <nav className="flex flex-1 flex-col gap-0.5">
-            {primaryNav.map((item) => {
+            {visiblePrimaryNav.map((item) => {
               if (item.href === "/clients" && item.expandable) {
                 const active = isActive("/clients");
                 const showSubSteps = hasClientsSteps && clientsExpanded;
@@ -427,7 +431,7 @@ export function Sidebar() {
 
             {/* Área da Clínica: só para a direção. Ocultar é conveniência de
                 navegação — o acesso real é garantido pela API. */}
-            {isController && (
+            {isDirection && (
               <NavItem
                 href="/clinic"
                 label="Clínica"

@@ -2,6 +2,7 @@
 "use client";
 
 import { useSession } from "@/context/auth";
+import { isClinicalContentRoute } from "@/lib/clinical-route-policy";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -22,6 +23,11 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
     // Aguarda loading inicial
     if (loading) return;
 
+    if (profile?.role === "COMPANY_ADMIN" && isClinicalContentRoute(pathname)) {
+      router.replace("/clinic");
+      return;
+    }
+
     // Evita redirecionar múltiplas vezes
     if (hasRedirected.current) return;
 
@@ -32,6 +38,14 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
       router.push("/login");
     }
   }, [profile, loading, checkSession, router, pathname]);
+
+  if (profile?.role === "COMPANY_ADMIN" && isClinicalContentRoute(pathname)) {
+    return (
+      <AnimatePresence mode="wait">
+        <LoadingScreen key="loading" fallback={fallback} />
+      </AnimatePresence>
+    );
+  }
 
   if (loading || !profile) {
     return (
