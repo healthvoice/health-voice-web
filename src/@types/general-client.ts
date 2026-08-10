@@ -81,6 +81,8 @@ export interface RecordingDetailsProps {
   reminderId?: string | null;
   reminder?: ReminderProps | null;
   transcriptionId?: string | null;
+  /** IA usada na última análise — destacada como "atual" na re-análise. */
+  promptId?: string | null;
   speeches: RecordingSpeakerSpeechProps[];
   speakers: RecordingSpeakerProps[];
   createdAt: Date;

@@ -11,13 +11,15 @@ import {
   Clock,
   FileText,
   Loader2,
+  RefreshCw,
   ScrollText,
   Sparkles,
 } from "lucide-react";
 import moment from "moment";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ReanalyzeModal } from "./components/reanalyze-modal";
 
 const ALL_TABS = [
   { label: "Resumo", icon: FileText, segment: "" },
@@ -51,6 +53,18 @@ export default function AppointmentDetailLayout({
 
   const [loading, setLoading] = useState(true);
   const [resolved, setResolved] = useState(false);
+  const [reanalyzeOpen, setReanalyzeOpen] = useState(false);
+
+  /** Recarrega a consulta depois da re-análise, sem recarregar a página inteira. */
+  const refreshRecording = useCallback(async () => {
+    if (!recordingId) return;
+    const response = await GetAPI(`/recording/${recordingId}`, true);
+    if (response.status === 200 && response.body?.id) {
+      setSelectedRecording(
+        response.body as Parameters<typeof setSelectedRecording>[0],
+      );
+    }
+  }, [recordingId, GetAPI, setSelectedRecording]);
 
   useEffect(() => {
     if (!clientId || !recordingId) {
@@ -226,6 +240,18 @@ export default function AppointmentDetailLayout({
                       {formattedDuration}
                     </span>
                   )}
+                  {/* Re-análise: só faz sentido em consulta já transcrita */}
+                  {selectedRecording?.type === "CLIENT" &&
+                    selectedRecording?.transcriptionStatus === "DONE" && (
+                      <button
+                        onClick={() => setReanalyzeOpen(true)}
+                        className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm transition hover:bg-white/25"
+                        title="Gerar resumo, insights e prontuário de novo com outra IA"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Re-analisar com outra IA
+                      </button>
+                    )}
                 </div>
               </div>
             </div>
@@ -265,6 +291,16 @@ export default function AppointmentDetailLayout({
 
       {/* ── PAGE CONTENT ── */}
       <div className="w-full">{children}</div>
+
+      {recordingId && (
+        <ReanalyzeModal
+          recordingId={recordingId}
+          currentPromptId={selectedRecording?.promptId}
+          open={reanalyzeOpen}
+          onClose={() => setReanalyzeOpen(false)}
+          onDone={refreshRecording}
+        />
+      )}
     </div>
   );
 }
