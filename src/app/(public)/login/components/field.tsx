@@ -83,6 +83,7 @@ const Field = ({
               disabled={disabled}
               required={required}
               maxLength={maxLength}
+              aria-invalid={invalid || undefined}
             ></textarea>
           ) : (
             <input
@@ -102,6 +103,7 @@ const Field = ({
               placeholder={placeholder}
               required={required}
               maxLength={maxLength}
+              aria-invalid={invalid || undefined}
             />
           )}
         </div>
