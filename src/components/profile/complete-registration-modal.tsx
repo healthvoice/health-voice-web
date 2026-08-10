@@ -55,7 +55,11 @@ export function CompleteRegistrationModal() {
     // Check if user needs to complete registration
     useEffect(() => {
         if (profile) {
-            const isMissingData = !profile.cpfCnpj || !profile.mobilePhone;
+            // Conta corporativa é cadastrada pelo Hub, que é a autoridade de
+            // identidade: exigir CPF/CNPJ e telefone aqui bloquearia com um
+            // formulário pessoal um acesso que a operação já considerou completo.
+            const isMissingData =
+                !profile.companyId && (!profile.cpfCnpj || !profile.mobilePhone);
             if (isMissingData) {
                 setIsOpen(true);
             }
