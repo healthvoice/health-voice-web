@@ -2,7 +2,6 @@
 
 import { AuthGuard } from "@/components/auth-guard";
 import MobileAppBlocker from "@/components/mobile";
-import { CompleteRegistrationModal } from "@/components/profile/complete-registration-modal";
 import { MobileTopBar } from "@/components/ui/mobile-top-bar";
 import { Sidebar } from "@/components/ui/sidebar";
 import { ApresentacaoProvider } from "@/context/apresentacaoContext";
@@ -55,7 +54,6 @@ export default function RootLayout({
           <ChatPageProvider>
             <div className="min-h-screen w-full bg-[#0d0d0d]">{children}</div>
             <MobileAppBlocker />
-            <CompleteRegistrationModal />
           </ChatPageProvider>
         </ApresentacaoProvider>
           </ClinicProvider>
@@ -102,7 +100,6 @@ export default function RootLayout({
                 </div>
               </motion.main>
             </div>
-            <CompleteRegistrationModal />
           </ChatPageProvider>
         </RecordingTourProvider>
       </ApresentacaoProvider>
