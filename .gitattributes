@@ -1,0 +1,12 @@
+# Fim de linha LF também na cópia de trabalho, inclusive no Windows.
+#
+# Sem isto, o `core.autocrlf=true` da máquina reescreve os arquivos com CRLF a
+# cada checkout/merge, e o `prettier --check` (que usa `endOfLine: lf`) passa a
+# reprovar arquivos que estão corretos no repositório — o CI em Linux aprova e
+# a máquina do dev reprova, sem nenhuma diferença de conteúdo.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.mp4 binary
