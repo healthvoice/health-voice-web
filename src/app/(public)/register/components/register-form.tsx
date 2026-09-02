@@ -26,7 +26,10 @@ const FormSchema = z.object({
   email: z.string().email({ message: "Email Inválido" }),
   password: z
     .object({
-      password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres"),
+      // 10, e nao 8: e' a exigencia do Hub, onde a conta nasce. Validar aqui
+      // com um numero menor faria o usuario preencher tudo, enviar e receber o
+      // erro do servidor — a mesma recusa, so que depois de perder o trabalho.
+      password: z.string().min(10, "Senha deve ter pelo menos 10 caracteres"),
       confirm: z.string(),
     })
     .refine((data) => data.password === data.confirm, {
