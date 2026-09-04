@@ -17,7 +17,7 @@ import {
 import moment from "moment";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TABS = [
   {
@@ -78,28 +78,41 @@ export default function SelectedStudyLayout({
   const [resolved, setResolved] = useState(false);
   const { selectedRecording } = useGeneralContext();
 
+  /** Qual gravação já foi revalidada nesta montagem — evita refetch em laço. */
+  const revalidadoRef = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     if (!recordingId) {
       router.push("/studies");
       return;
     }
 
+    // Stale-while-revalidate: com a gravação em contexto, mostra na hora e
+    // revalida em segundo plano. Antes era um `return` seco, e o contexto
+    // costuma vir da LINHA DA LISTA (payload resumido) — a aba de transcrição
+    // lia `selectedRecording.speeches` dali, e o estado envelhecia sem limite.
     const alreadyHasContext = selectedRecording?.id === recordingId;
     if (alreadyHasContext) {
-      setLoading(false);
       setResolved(true);
+    }
+
+    if (revalidadoRef.current === recordingId) {
+      setLoading(false);
       return;
     }
+    revalidadoRef.current = recordingId;
 
     let cancelled = false;
 
     const loadFromApi = async () => {
-      setLoading(true);
+      setLoading(!alreadyHasContext);
       const response = await GetAPI(`/recording/${recordingId}`, true);
       if (cancelled) return;
 
       if (response.status !== 200 || !response.body?.id) {
-        router.push("/studies");
+        // Revalidação que falha não expulsa quem já tem a tela montada.
+        if (!alreadyHasContext) router.push("/studies");
+        setLoading(false);
         return;
       }
 

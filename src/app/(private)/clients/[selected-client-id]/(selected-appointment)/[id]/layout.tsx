@@ -17,7 +17,7 @@ import {
 import moment from "moment";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ALL_TABS = [
   { label: "Resumo", icon: FileText, segment: "" },
@@ -51,6 +51,8 @@ export default function AppointmentDetailLayout({
 
   const [loading, setLoading] = useState(true);
   const [resolved, setResolved] = useState(false);
+  /** Qual consulta já foi revalidada nesta montagem — evita refetch em laço. */
+  const revalidadoRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!clientId || !recordingId) {
@@ -58,23 +60,42 @@ export default function AppointmentDetailLayout({
       return;
     }
 
+    // Stale-while-revalidate: se já temos a consulta em contexto, mostra ela na
+    // hora (sem spinner), mas SEMPRE revalida contra o servidor.
+    //
+    // Antes isto era um `return` seco — com contexto, nunca refazia o fetch. Daí
+    // vinham dois problemas:
+    //
+    // 1. O contexto costuma ser preenchido pela LINHA DA LISTA
+    //    (`setSelectedRecording(recording)` nas tabelas), que é um payload
+    //    resumido. A aba de transcrição lia `selectedRecording.speeches` daí.
+    // 2. O estado envelhecia sem limite. Foi o que manteve o botão "Solicitar
+    //    Transcrição" vivo sobre consultas já transcritas em 03-04/09/2026, e o
+    //    que faz esta tela pedir ao usuário que "atualize a página".
     const alreadyHasContext =
       selectedRecording?.id === recordingId && selectedClient?.id === clientId;
     if (alreadyHasContext) {
-      setLoading(false);
       setResolved(true);
+    }
+
+    if (revalidadoRef.current === recordingId) {
+      setLoading(false);
       return;
     }
+    revalidadoRef.current = recordingId;
 
     let cancelled = false;
 
     const loadFromApi = async () => {
-      setLoading(true);
+      setLoading(!alreadyHasContext);
       const response = await GetAPI(`/recording/${recordingId}`, true);
       if (cancelled) return;
 
       if (response.status !== 200 || !response.body?.id) {
-        router.push("/clients");
+        // Com a consulta já na tela, uma revalidação que falha (rede caindo,
+        // 5xx) não pode expulsar o usuário — mantém o que está exibido.
+        if (!alreadyHasContext) router.push("/clients");
+        setLoading(false);
         return;
       }
 
