@@ -172,7 +172,18 @@ const SignIn = ({ onClick }: SignInProps) => {
       if (!response.ok) {
         let errorMessage = "Erro ao efetuar login, tente novamente.";
 
-        if (response.status === 401) {
+        // A senha estava certa: a conta existe e simplesmente ainda não tem
+        // acesso ao produto. Dizer "e-mail ou senha incorretos" aqui manda a
+        // pessoa trocar uma senha que está correta. O 403 puro entra junto
+        // porque versões publicadas da API ainda respondem sem código.
+        if (
+          result.code === "MISSING_PRODUCT_ACCESS" ||
+          result.code === "INACTIVE_PRODUCT_ACCESS" ||
+          response.status === 403
+        ) {
+          errorMessage =
+            "Sua conta ainda não tem acesso liberado ao Health Voice. Assim que a liberação for concluída, você poderá entrar com este mesmo e-mail e senha.";
+        } else if (response.status === 401) {
           errorMessage = "E-mail ou senha incorretos.";
         } else if (result.message) {
           errorMessage = result.message;

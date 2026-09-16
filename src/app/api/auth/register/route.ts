@@ -43,6 +43,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cadastro concluído NÃO é acesso liberado. Quando o Hub cria a conta sem
+    // liberar o produto, não há token clínico para guardar e não há para onde
+    // levar a pessoa: a tela precisa dizer que a conta existe e está esperando.
+    // Tratar isso como login daria cookie vazio e um app quebrado por dentro.
+    if (data.status === "PENDING_ACCESS") {
+      return NextResponse.json(
+        { status: "PENDING_ACCESS", email: body.email },
+        { status: 202 },
+      );
+    }
+
+    if (!data.accessToken || !data.refreshToken) {
+      console.error("[api/auth/register] Resposta sem sessão e sem pendência");
+      return NextResponse.json(
+        { message: "Não foi possível concluir o cadastro. Tente novamente." },
+        { status: 502 },
+      );
+    }
+
     await setAuthCookies(data.accessToken, data.refreshToken);
 
     return NextResponse.json({ user: data.user }, { status: 201 });
