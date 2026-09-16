@@ -3,15 +3,7 @@
 
 import { useSession } from "@/context/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Eye,
-  EyeOff,
-  Loader2,
-  LockIcon,
-  Mail,
-  MailCheck,
-  User,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2, LockIcon, Mail, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -24,6 +16,7 @@ import {
   FormItem,
   FormMessage,
 } from "../../login/components/form";
+import CheckoutStep from "./checkout-step";
 import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
 import { TermsOfUseModal } from "./TermsOfUseModal";
 import { useApiContext } from "@/context/ApiContext";
@@ -52,8 +45,17 @@ const RegisterForm = () => {
   const { PostAPI } = useApiContext();
   const { sessionId } = useTrackingContext();
   const [isCreating, setIsCreating] = useState(false);
-  /** E-mail da conta que foi criada e ainda espera liberação de acesso. */
-  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  /**
+   * Credenciais da conta recém-criada, em memória.
+   *
+   * A contratação acontece antes de existir sessão: conta sem acesso liberado
+   * não tem token nesta API, então o pagamento é iniciado com e-mail e senha,
+   * conferidos no Hub. Nada disso é gravado em cookie ou storage.
+   */
+  const [pendingAccount, setPendingAccount] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showRememberPassword, setShowRememberPassword] = useState(false);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
@@ -224,7 +226,7 @@ const RegisterForm = () => {
       // Conta criada, acesso ainda não liberado: não há sessão para abrir, e
       // mandar para a tela inicial devolveria a pessoa ao login sem explicação.
       if (result.status === "PENDING_ACCESS") {
-        setPendingEmail(email.trim());
+        setPendingAccount({ email: email.trim(), password: passwordValue });
         return;
       }
 
@@ -247,37 +249,8 @@ const RegisterForm = () => {
     }
   };
 
-  if (pendingEmail) {
-    return (
-      <div
-        className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-5 text-left"
-        role="status"
-        aria-live="polite"
-      >
-        <div className="flex items-center gap-2">
-          <MailCheck className="text-blue-500" size={22} aria-hidden />
-          <h2 className="text-base font-semibold text-blue-900">
-            Conta criada. Falta liberar o acesso.
-          </h2>
-        </div>
-        <p className="text-sm text-blue-900">
-          Sua conta <strong className="break-all">{pendingEmail}</strong> já
-          existe no Health Voice, mas ainda não tem acesso liberado. Nossa
-          equipe conclui a liberação e avisa você por e-mail.
-        </p>
-        <p className="text-sm text-blue-900">
-          Quando isso acontecer, entre normalmente com este e-mail e a senha que
-          você acabou de criar — não é preciso se cadastrar de novo.
-        </p>
-        <button
-          type="button"
-          onClick={() => router.push("/login")}
-          className="mt-1 w-full rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-600"
-        >
-          Ir para o login
-        </button>
-      </div>
-    );
+  if (pendingAccount) {
+    return <CheckoutStep email={pendingAccount.email} password={pendingAccount.password} />;
   }
 
   return (
