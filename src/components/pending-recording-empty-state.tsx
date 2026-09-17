@@ -60,9 +60,16 @@ export function PendingRecordingEmptyState({
   const { selectedRecording } = useGeneralContext();
   const { icon: Icon, title, description, iconBg, iconColor } = config[variant];
 
-  const isPending = selectedRecording?.transcriptionStatus === "PENDING";
+  // `TRANSCRIBING` precisa contar como "em andamento" aqui também: é o estado
+  // durante a sumarização por IA e nele o `summary` ainda está vazio — então
+  // esta tela era escolhida (quem decide é `!summary`, não o status) e oferecia
+  // "Solicitar Transcrição" numa consulta que estava sendo transcrita naquele
+  // exato momento.
+  const isPending =
+    selectedRecording?.transcriptionStatus === "PENDING" ||
+    selectedRecording?.transcriptionStatus === "TRANSCRIBING";
   const isDone = selectedRecording?.transcriptionStatus === "DONE";
-  const showCta = showRequestCta && !isDone;
+  const showCta = showRequestCta && !isDone && !isPending;
 
   return (
     <div

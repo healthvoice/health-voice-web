@@ -83,7 +83,35 @@ export function RequestTranscription({
       return;
     }
     setIsRequesting(true);
-    
+
+    // Confere o estado REAL no servidor antes de despachar.
+    //
+    // O gate visual roda contra `selectedRecording`, que é estado de contexto e
+    // NUNCA é revalidado — a própria tela de espera manda o usuário "atualizar
+    // a página em alguns minutos". Uma aba carregada antes de a transcrição
+    // terminar segue oferecendo o botão indefinidamente.
+    //
+    // Em 03-04/09/2026 isso destruiu duas consultas já transcritas: o
+    // `PUT status=PENDING` apagava a transcrição pronta no servidor. O servidor
+    // foi corrigido para não apagar mais, mas o clique ainda dispararia um job
+    // inútil (áudio de 60+ min, cobrado) e devolveria a consulta para
+    // "transcrevendo" sem motivo.
+    const atual = await GetAPI(`/recording/${selectedRecording.id}`, true);
+    if (atual.status === 200 && atual.body) {
+      const statusReal = atual.body.transcriptionStatus;
+      if (statusReal === "DONE" || statusReal === "TRANSCRIBING") {
+        setSelectedRecording({ ...selectedRecording, ...atual.body });
+        setIsModalOpen(false);
+        setIsRequesting(false);
+        toast(
+          statusReal === "DONE"
+            ? "Esta consulta já está transcrita — a tela foi atualizada."
+            : "A transcrição desta consulta já está sendo processada.",
+        );
+        return;
+      }
+    }
+
     // ── Tracking: TRANSCRIPTION_REQUESTED quando solicita transcrição
     try {
       await trackAction({
@@ -228,6 +256,16 @@ export function RequestTranscription({
     }
   }
 
+  // `TRANSCRIBING` estava fora de TODOS os gates: nem desabilitava, nem
+  // escondia. É o estado em que a gravação fica durante a sumarização por IA —
+  // que numa consulta de 60+ min leva dezenas de segundos — e ali o botão
+  // aparecia vivo, dizendo "Solicitar Transcrição", numa consulta que estava
+  // sendo transcrita naquele instante.
+  const transcricaoEmAndamento =
+    selectedRecording?.transcriptionStatus === "PENDING" ||
+    selectedRecording?.transcriptionStatus === "TRANSCRIBING";
+  const jaTranscrita = selectedRecording?.transcriptionStatus === "DONE";
+
   const filteredPrompts = useMemo(() => {
     if (!searchQuery.trim()) return prompts;
     const query = searchQuery.toLowerCase();
@@ -244,16 +282,14 @@ export function RequestTranscription({
         onClick={() =>
           isPrincipal ? handleOpenModal() : HandleRequestTranscription()
         }
-        disabled={
-          selectedRecording?.transcriptionStatus === "PENDING" || isRequesting
-        }
+        disabled={transcricaoEmAndamento || jaTranscrita || isRequesting}
         className={cn(
           "bg-primary flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98]",
           !inline &&
             "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-          selectedRecording?.transcriptionStatus === "PENDING" &&
-            "cursor-wait bg-green-400 opacity-50",
-          selectedRecording?.transcriptionStatus === "DONE" && "hidden",
+          transcricaoEmAndamento && "cursor-wait bg-green-400 opacity-50",
+          // `hidden` sozinho não bastava: escondia sem desabilitar.
+          jaTranscrita && "hidden",
         )}
       >
         {isRequesting ? (
@@ -261,7 +297,7 @@ export function RequestTranscription({
             <Loader2 className="animate-spin" />
             Transcrevendo...
           </>
-        ) : selectedRecording?.transcriptionStatus === "PENDING" ? (
+        ) : transcricaoEmAndamento ? (
           "Transcrição pendente"
         ) : (
           "Solicitar Transcrição"
