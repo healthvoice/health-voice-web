@@ -23,6 +23,52 @@ import {
   parseExpiry,
 } from "./components/utils";
 
+type HubPreco = {
+  id: string;
+  amountCents: number;
+  frequency: "MONTHLY" | "YEARLY";
+  paymentMethod: "PIX" | "PIX_AUTOMATIC" | "CREDIT_CARD";
+};
+type HubPlano = {
+  id: string;
+  name: string;
+  description: string;
+  dailyRecordSeconds: number;
+  prices: HubPreco[];
+};
+
+/** Chave de uma oferta: meio e periodicidade identificam o preço. */
+const chaveDoPreco = (metodo: string, ciclo: BillingCycle) => `${metodo}:${ciclo}`;
+
+/**
+ * Traduz o catálogo do Hub para o formato que a tela já usava.
+ *
+ * Deliberadamente um adaptador, e não uma reescrita da tela: o que muda é de
+ * onde vêm os preços e para onde vai a contratação, não o que o cliente vê.
+ */
+function doHubParaPlano(plano: HubPlano): Plan {
+  const valor = (metodo: HubPreco["paymentMethod"], ciclo: BillingCycle) =>
+    plano.prices.find((p) => p.paymentMethod === metodo && p.frequency === ciclo)
+      ?.amountCents;
+  const emReais = (centavos?: number) =>
+    centavos === undefined ? undefined : centavos / 100;
+  const priceIds: Record<string, string> = {};
+  for (const preco of plano.prices)
+    priceIds[chaveDoPreco(preco.paymentMethod, preco.frequency)] = preco.id;
+
+  return {
+    id: plano.id,
+    name: plano.name,
+    description: plano.description,
+    pixMonthlyPrice: emReais(valor("PIX", "MONTHLY")),
+    pixYearlyPrice: emReais(valor("PIX", "YEARLY")),
+    creditMonthlyPrice: emReais(valor("CREDIT_CARD", "MONTHLY")),
+    creditYearlyPrice: emReais(valor("CREDIT_CARD", "YEARLY")),
+    dailyRecordAvailable: plano.dailyRecordSeconds,
+    priceIds,
+  };
+}
+
 export default function PlansPage() {
   const { GetAPI, PostAPI, PutAPI } = useApiContext();
   const { profile, setProfile, isTrial, handleGetAvailableRecording } =
@@ -78,22 +124,29 @@ export default function PlansPage() {
   const [discountPercent, setDiscountPercent] = useState(0);
 
   // ── Fetch plans
+  /**
+   * O catálogo agora vem do Hub, não mais de `/signature-plan/channel/WEB`.
+   *
+   * Quem decide preço, cota e o que está à venda é o Hub — o Voice deixou de
+   * vender. A tela continua igual: a resposta do Hub é traduzida para o mesmo
+   * formato que ela já consumia, mais o `priceIds`, que é como o Hub identifica
+   * a oferta escolhida.
+   */
   const fetchPlans = useCallback(async () => {
     setLoadingPlans(true);
     try {
-      const res = await GetAPI("/signature-plan/channel/WEB", true);
-      if (res.status === 200 && res.body?.plans) {
-        const list = res.body.plans as Plan[];
-        setPlans(list);
-        if (list.length > 0)
-          setSelectedPlan(list[Math.min(1, list.length - 1)].id);
-      }
+      const resposta = await fetch("/api-backend/hub/checkout/plans");
+      if (!resposta.ok) throw new Error("catalogo indisponivel");
+      const catalogo = (await resposta.json()) as HubPlano[];
+      const list = catalogo.map(doHubParaPlano);
+      setPlans(list);
+      if (list.length > 0) setSelectedPlan(list[list.length - 1].id);
     } catch {
       console.error("Erro ao buscar planos");
     } finally {
       setLoadingPlans(false);
     }
-  }, [GetAPI]);
+  }, []);
 
   useEffect(() => {
     fetchPlans();
@@ -191,9 +244,14 @@ export default function PlansPage() {
 
     const checkStatus = async () => {
       try {
-        const res = await GetAPI(`/signature/${pixSignatureId}/status`, true);
+        const resposta = await fetch(`/api-backend/hub/checkout/${pixSignatureId}`);
+        const res = {
+          status: resposta.status,
+          body: resposta.ok ? await resposta.json() : null,
+        };
         if (!mounted) return;
-        if ([200, 201].includes(res.status) && res.body?.isPaid) {
+        // Quem libera o acesso é o webhook do gateway; esta consulta só observa.
+        if ([200, 201].includes(res.status) && res.body?.status === "PAID") {
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
@@ -331,6 +389,43 @@ export default function PlansPage() {
     return false;
   }
 
+  /**
+   * Contratação pelo Hub.
+   *
+   * Um caminho só para PIX e cartão: o que muda entre eles é o `priceId` — que
+   * já carrega meio, ciclo e valor — e a presença dos dados do cartão. CPF e
+   * telefone vão junto porque um terço das contas migradas veio sem eles, e o
+   * Hub recusa a contratação sem os dois; mandá-los aqui evita a recusa
+   * acontecer com o cartão já digitado.
+   */
+  async function contratarNoHub(extra: { card?: Record<string, unknown> }) {
+    const plano = plans.find((p) => p.id === selectedPlan);
+    const metodo = extra.card ? "CREDIT_CARD" : "PIX";
+    const priceId = plano?.priceIds?.[chaveDoPreco(metodo, billingCycle)];
+    if (!priceId) {
+      return {
+        status: 400,
+        body: { message: "Esta forma de pagamento não está disponível para este plano." },
+      };
+    }
+    try {
+      const resposta = await fetch("/api-backend/hub/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId,
+          cpf: onlyDigits(cpf) || undefined,
+          mobilePhone: onlyDigits(phone) || undefined,
+          ...extra,
+        }),
+      });
+      const body = await resposta.json().catch(() => null);
+      return { status: resposta.status, body };
+    } catch {
+      return { status: 0, body: { message: "Sem conexão. Tente novamente." } };
+    }
+  }
+
   async function handleCard() {
     if (!selectedPlan) throw new Error("Plano não selecionado.");
     const finalCoupon = coupon.trim();
@@ -361,37 +456,23 @@ export default function PlansPage() {
     const expParsed = parseExpiry(exp);
     if (!expParsed) throw new Error("Data de expiração inválida.");
 
-    const body = {
-      planId: selectedPlan,
-      billingCycle,
-      code: finalCoupon || undefined,
-      creditCard: {
+    const resp = await contratarNoHub({
+      card: {
         holderName: holder.toUpperCase(),
         number: onlyDigits(cardNumber),
         expiryMonth: expParsed.month,
         expiryYear: expParsed.year,
         ccv: onlyDigits(cvv),
+        holder: {
+          name: holder,
+          email: email.trim(),
+          cpfCnpj: onlyDigits(cpf),
+          postalCode: onlyDigits(cep),
+          addressNumber: house.trim(),
+          phone: onlyDigits(phone),
+        },
       },
-      creditCardHolderInfo: {
-        name: holder,
-        email: email.trim(),
-        cpfCnpj: onlyDigits(cpf),
-        postalCode: onlyDigits(cep),
-        addressNumber: house.trim(),
-        phone: onlyDigits(phone),
-      },
-      billingInfo: {
-        name: holder,
-        email: email.trim(),
-        cpfCnpj: onlyDigits(cpf),
-        mobilePhone: onlyDigits(phone),
-        postalCode: onlyDigits(cep),
-        address: address.trim(),
-        addressNumber: house.trim(),
-      },
-    };
-
-    const resp = await PostAPI("/signature/credit/new", body, true);
+    });
     if ([200, 201].includes(resp.status)) {
       await handleGetAvailableRecording();
       setViewState("success");
@@ -426,24 +507,12 @@ export default function PlansPage() {
   async function handleGeneratePix(): Promise<{ status: number; body?: any }> {
     if (!selectedPlan) return { status: 400 };
     const finalCoupon = coupon.trim();
-    const body = {
-      billingCycle,
-      code: finalCoupon || undefined,
-      billingInfo: {
-        name: holder,
-        email: email.trim(),
-        cpfCnpj: onlyDigits(cpf),
-        mobilePhone: onlyDigits(phone),
-        postalCode: onlyDigits(cep),
-        address: address.trim(),
-        addressNumber: house.trim(),
-      },
-    };
-    const resp = await PostAPI(`/signature/pix/${selectedPlan}`, body, true);
+    const resp = await contratarNoHub({});
     if ([200, 201].includes(resp.status) && resp.body?.payment) {
-      setPixPayload(resp.body.payment.payload || "");
-      setPixEncodedImage(resp.body.payment.encodedImage || null);
-      setPixSignatureId(resp.body.signatureId || null);
+      setPixPayload(resp.body.payment.pixCopyPaste || "");
+      setPixEncodedImage(resp.body.payment.pixQrCodeBase64 || null);
+      // O Hub acompanha pelo id da CONTRATAÇÃO, não da assinatura.
+      setPixSignatureId(resp.body.id || null);
       setPixGenerated(true);
       
       // ── Tracking: CHECKOUT_PIX_GENERATED

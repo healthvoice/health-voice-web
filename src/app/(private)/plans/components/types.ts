@@ -11,6 +11,14 @@ export interface Plan {
   dailyRecordAvailable?: number;
   monthlyRecordAvailable?: number;
   channels?: string[];
+  /**
+   * Preço do Hub por meio e periodicidade, na chave `MEIO:PERIODICIDADE`.
+   *
+   * O Hub identifica a oferta escolhida pelo `priceId` — é ele que carrega
+   * valor, meio e ciclo. Mandar plano e ciclo soltos, como o caminho antigo
+   * fazia, deixaria o cliente dizer o que está comprando.
+   */
+  priceIds?: Record<string, string>;
 }
 
 export type BillingCycle = "MONTHLY" | "YEARLY";

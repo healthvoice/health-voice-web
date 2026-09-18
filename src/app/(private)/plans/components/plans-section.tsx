@@ -41,6 +41,25 @@ interface PlanStaticData {
   badge?: string;
 }
 
+/**
+ * Texto de venda por PLANO, nao por posicao.
+ *
+ * Isto era indexado pela ordem em que os planos chegavam. Funcionava enquanto
+ * vinham sempre dois, na mesma ordem; quando o catalogo passou a vir do Hub com
+ * o PRO escondido, o `individual` herdou o cartao do AUTONOMO - nome errado,
+ * cota errada e recursos marcados como nao incluidos.
+ */
+function dadosDoPlano(plano: { name?: string }, indice: number): PlanStaticData {
+  const porNome: Record<string, number> = {
+    individual: 1,
+    ULTRA: 1,
+    PRO: 0,
+    AUTONOMO: 0,
+  };
+  const escolhido = porNome[plano?.name ?? ''];
+  return PLAN_STATIC_DATA[escolhido ?? indice] ?? PLAN_STATIC_DATA[0];
+}
+
 const PLAN_STATIC_DATA: PlanStaticData[] = [
   {
     subtitle: "Ilimitado",
@@ -209,7 +228,7 @@ export function PlansSection({
             const isSelected = selectedPlan === plan.id;
             const price = getPlanCreditPrice(plan, billingCycle);
             const pixPrice = getPlanPixPrice(plan, billingCycle);
-            const staticData = PLAN_STATIC_DATA[i] ?? PLAN_STATIC_DATA[0];
+            const staticData = dadosDoPlano(plan, i);
             const isHighlight = staticData.highlight ?? false;
 
             return (
@@ -601,7 +620,7 @@ export function PlansSection({
                   Recurso
                 </th>
                 {displayPlans.map((plan, i) => {
-                  const sd = PLAN_STATIC_DATA[i] ?? PLAN_STATIC_DATA[0];
+                  const sd = dadosDoPlano(plan, i);
                   const isSelected = selectedPlan === plan.id;
                   return (
                     <th key={plan.id} className="px-4 py-3 text-center w-1/3">
@@ -660,7 +679,7 @@ export function PlansSection({
                     {row.feature}
                   </td>
                   {displayPlans.map((plan, i) => {
-                    const sd = PLAN_STATIC_DATA[i] ?? PLAN_STATIC_DATA[0];
+                    const sd = dadosDoPlano(plan, i);
                     const isSelected = selectedPlan === plan.id;
                     const val = row.values[i];
                     return (
