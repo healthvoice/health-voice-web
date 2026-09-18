@@ -23,6 +23,15 @@ import {
   parseExpiry,
 } from "./components/utils";
 
+/** Motivo técnico da recusa do cupom, traduzido para a tela. */
+const MOTIVO_DO_CUPOM: Record<string, string> = {
+  NAO_EXISTE: "Cupom não encontrado.",
+  INATIVO: "Este cupom não está mais ativo.",
+  EXPIRADO: "Este cupom expirou.",
+  ESGOTADO: "Este cupom atingiu o limite de usos.",
+  OUTRO_PRODUTO: "Este cupom não vale para o Health Voice.",
+};
+
 type HubPreco = {
   id: string;
   amountCents: number;
@@ -94,7 +103,12 @@ export default function PlansPage() {
   const checkoutStartTime = useRef<number | null>(null);
 
   // ── Payment method (PIX como padrão)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
+  /**
+   * PIX Automático é o padrão: é ele que cobra sozinho todo mês, sem cartão.
+   * PIX comum só aparece quando o banco do pagador recusa a autorização.
+   */
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pixAutomatic");
+  const [pixComumLiberado, setPixComumLiberado] = useState(false);
 
   // ── PIX state
   const [pixGenerated, setPixGenerated] = useState(false);
@@ -250,6 +264,28 @@ export default function PlansPage() {
           body: resposta.ok ? await resposta.json() : null,
         };
         if (!mounted) return;
+        /**
+         * Recusa do banco no PIX Automático.
+         *
+         * A autorização nasce pendente e o banco do pagador responde depois,
+         * por webhook. Quando recusa, não adianta seguir esperando: o débito
+         * automático não vai existir. Aqui o PIX comum deixa de ser escondido e
+         * passa a ser a saída oferecida.
+         */
+        const recusa = res.body?.autorizacao;
+        if (recusa?.alternativa === "PIX") {
+          setPixComumLiberado(true);
+          setPixGenerated(false);
+          setPaymentMethod("pix");
+          toast.error(
+            "Seu banco recusou o débito automático. Você pode pagar com PIX comum.",
+          );
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          return;
+        }
         // Quem libera o acesso é o webhook do gateway; esta consulta só observa.
         if ([200, 201].includes(res.status) && res.body?.status === "PAID") {
           if (pollingIntervalRef.current) {
@@ -407,7 +443,11 @@ export default function PlansPage() {
    */
   async function contratarNoHub(extra: { card?: Record<string, unknown> }) {
     const plano = plans.find((p) => p.id === selectedPlan);
-    const metodo = extra.card ? "CREDIT_CARD" : "PIX";
+    const metodo = extra.card
+      ? "CREDIT_CARD"
+      : paymentMethod === "pixAutomatic"
+        ? "PIX_AUTOMATIC"
+        : "PIX";
     const priceId = plano?.priceIds?.[chaveDoPreco(metodo, billingCycle)];
     if (!priceId) {
       return {
@@ -423,6 +463,7 @@ export default function PlansPage() {
           priceId,
           cpf: onlyDigits(cpf) || undefined,
           mobilePhone: onlyDigits(phone) || undefined,
+          coupon: coupon.trim() ? coupon.trim().toUpperCase() : undefined,
           ...extra,
         }),
       });
@@ -627,9 +668,13 @@ export default function PlansPage() {
     if (!code) return;
     setIsValidatingCoupon(true);
     try {
-      const resp = await GetAPI(`/coupon/${code}`, false);
-      if (resp.status === 200 && resp.body?.discount !== undefined) {
-        const discount = Number(resp.body.discount);
+      // O cupom vive no Hub, que é quem aplica o desconto na contratação. Esta
+      // consulta é só a prévia, para a pessoa ver o valor antes de pagar.
+      const resposta = await fetch(`/api-backend/hub/checkout/coupon/${encodeURIComponent(code)}`);
+      const corpo = await resposta.json().catch(() => null);
+      const resp = { status: resposta.status, body: corpo };
+      if (resposta.ok && corpo?.valido) {
+        const discount = Number(corpo.descontoPercentual ?? 0);
         setDiscountPercent(discount);
         toast.success(
           discount === 100
@@ -649,9 +694,7 @@ export default function PlansPage() {
         });
       } else {
         setDiscountPercent(0);
-        toast.error(
-          String(resp.body?.message || resp.body || "Cupom não encontrado."),
-        );
+        toast.error(MOTIVO_DO_CUPOM[resp.body?.motivo ?? ""] ?? "Cupom não encontrado.");
         
         // ── Tracking: CHECKOUT_COUPON_FAILED
         trackAction({
@@ -815,6 +858,7 @@ export default function PlansPage() {
             selectedPlan={selectedPlanData}
             billingCycle={billingCycle}
             paymentMethod={paymentMethod}
+            mostrarPixComum={pixComumLiberado}
             isFree={isFree}
             discountPercent={discountPercent}
             finalPrice={finalPrice}
@@ -970,7 +1014,7 @@ export default function PlansPage() {
 
       {/* ═══ Footer fixo (checkout) — portal ═══ */}
       <CheckoutFooter
-        show={isCheckout && !(pixGenerated && paymentMethod === "pix")}
+        show={isCheckout && !(pixGenerated && paymentMethod !== "card")}
         priceLabel={priceLabel()}
         basePrice={basePrice}
         discountPercent={discountPercent}

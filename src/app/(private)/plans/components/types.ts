@@ -22,5 +22,12 @@ export interface Plan {
 }
 
 export type BillingCycle = "MONTHLY" | "YEARLY";
-export type PaymentMethod = "card" | "pix";
+/**
+ * `pixAutomatic` e o padrao: e ele que cobra sozinho todo mes, sem cartao.
+ *
+ * `pix` comum nao e oferecido de saida — so aparece quando o banco do pagador
+ * RECUSA a autorizacao do debito automatico, que e quando ele deixa de ser uma
+ * escolha e passa a ser a saida.
+ */
+export type PaymentMethod = "card" | "pix" | "pixAutomatic";
 export type ViewState = "plans" | "checkout" | "success";

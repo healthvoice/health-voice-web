@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/utils/cn";
+import type { PaymentMethod } from "./types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -104,16 +105,28 @@ export function Field({
   );
 }
 
+const ROTULO_DO_MEIO: Record<PaymentMethod, string> = {
+  pixAutomatic: "PIX Automático",
+  pix: "PIX",
+  card: "Cartão",
+};
+
 export function PaymentMethodTabs({
   selected,
   onChange,
+  mostrarPixComum = false,
 }: {
-  selected: "card" | "pix";
-  onChange: (m: "card" | "pix") => void;
+  selected: PaymentMethod;
+  onChange: (m: PaymentMethod) => void;
+  /** PIX comum só entra quando o banco recusa o débito automático. */
+  mostrarPixComum?: boolean;
 }) {
+  const meios: PaymentMethod[] = mostrarPixComum
+    ? ["pixAutomatic", "pix", "card"]
+    : ["pixAutomatic", "card"];
   return (
     <div className="mb-6 flex gap-1 rounded-xl bg-blue-50 p-1">
-      {(["pix", "card"] as const).map((m) => (
+      {meios.map((m) => (
         <button
           key={m}
           type="button"
@@ -125,12 +138,12 @@ export function PaymentMethodTabs({
               : "text-gray-400 hover:text-gray-600",
           )}
         >
-          {m === "pix" ? (
-            <QrCode className="h-4 w-4" />
-          ) : (
+          {m === "card" ? (
             <CreditCard className="h-4 w-4" />
+          ) : (
+            <QrCode className="h-4 w-4" />
           )}
-          {m === "pix" ? "PIX" : "Cartão"}
+          {ROTULO_DO_MEIO[m]}
         </button>
       ))}
     </div>

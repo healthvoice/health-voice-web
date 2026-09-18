@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/utils/cn";
+import type { PaymentMethod } from "./types";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -14,7 +15,7 @@ interface CheckoutFooterProps {
   finalPrice: number;
   isFree: boolean;
   billingCycle: "MONTHLY" | "YEARLY";
-  paymentMethod: "card" | "pix";
+  paymentMethod: PaymentMethod;
   submitLoading: boolean;
   canSubmit: boolean;
   submitLabel: string;

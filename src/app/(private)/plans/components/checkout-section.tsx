@@ -26,6 +26,7 @@ interface CheckoutSectionProps {
   selectedPlan: Plan;
   billingCycle: BillingCycle;
   paymentMethod: PaymentMethod;
+  mostrarPixComum?: boolean;
   isFree: boolean;
   discountPercent: number;
   finalPrice: number;
@@ -79,6 +80,7 @@ export function CheckoutSection({
   selectedPlan,
   billingCycle,
   paymentMethod,
+  mostrarPixComum,
   isFree,
   discountPercent,
   finalPrice,
@@ -152,11 +154,17 @@ export function CheckoutSection({
 
       {/* Payment method tabs */}
       {!isFree && (
-        <PaymentMethodTabs selected={paymentMethod} onChange={onPaymentMethodChange} />
+        <PaymentMethodTabs
+          selected={paymentMethod}
+          onChange={onPaymentMethodChange}
+          mostrarPixComum={mostrarPixComum}
+        />
       )}
 
       {/* PIX Generated view */}
-      {pixGenerated && paymentMethod === "pix" ? (
+      {/* PIX e PIX Automático pagam pelo mesmo QR: no automático, a leitura
+          autoriza a recorrência e quita a primeira cobrança de uma vez. */}
+      {pixGenerated && paymentMethod !== "card" ? (
         <PixGeneratedView
           price={fmtBRL(finalPrice)}
           pixCode={pixPayload}
