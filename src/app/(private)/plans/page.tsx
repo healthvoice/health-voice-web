@@ -363,7 +363,11 @@ export default function PlansPage() {
     const addressSectionOk = cepOk && addressOk && houseOk;
 
     if (isFree) return cpfOk && holderOk && emailOk && phoneOk;
-    if (paymentMethod === "pix")
+    // PIX e PIX Automático pedem os mesmos dados: os dois pagam por QR. Só o
+    // cartão exige número, validade e CVV. Sem esta distinção, escolher PIX
+    // Automático deixava o botão desabilitado esperando dados de cartão que a
+    // tela nem mostra.
+    if (paymentMethod !== "card")
       return cpfOk && holderOk && emailOk && phoneOk && addressSectionOk;
 
     const cardOk = onlyDigits(cardNumber).length >= 12;
@@ -580,7 +584,7 @@ export default function PlansPage() {
   async function onSubmit() {
     if (!canSubmit) {
       toast.error(
-        paymentMethod === "pix" || isFree
+        paymentMethod !== "card" || isFree
           ? "Verifique seus dados pessoais."
           : "Verifique os dados do cartão e endereço.",
       );
@@ -603,7 +607,7 @@ export default function PlansPage() {
         },
       });
 
-      if (paymentMethod === "pix" && !isFree) {
+      if (paymentMethod !== "card" && !isFree) {
         const resp = await handleGeneratePix();
         if (![200, 201].includes(resp.status)) {
           const msg =
@@ -790,6 +794,7 @@ export default function PlansPage() {
   const submitLabel = () => {
     if (submitLoading) return "Processando...";
     if (isFree) return "Confirmar Inscrição Gratuita";
+    if (paymentMethod === "pixAutomatic") return "Gerar PIX Automático";
     if (paymentMethod === "pix") return "Gerar PIX";
     return "Finalizar Pagamento";
   };
