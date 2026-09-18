@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/terms",
 ];
 
+
 // Prefixos que devem ser ignorados pelo middleware
 const IGNORED_PREFIXES = ["/_next", "/api", "/icons", "/logos", "/favicon"];
 
