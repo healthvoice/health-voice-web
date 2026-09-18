@@ -223,7 +223,16 @@ export function PlansSection({
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2">
+        <div
+          className={cn(
+            "grid w-full grid-cols-1 gap-6",
+            // Duas colunas só quando há dois planos. Com um plano só,
+            // `md:grid-cols-2` deixava o cartão ocupando metade da largura, com
+            // uma coluna vazia ao lado — o catálogo deixou de ter número fixo
+            // de planos quando passou a vir do Hub.
+            displayPlans.length > 1 && "md:grid-cols-2",
+          )}
+        >
           {displayPlans.map((plan, i) => {
             const isSelected = selectedPlan === plan.id;
             const price = getPlanCreditPrice(plan, billingCycle);

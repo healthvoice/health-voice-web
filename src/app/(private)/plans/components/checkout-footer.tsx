@@ -46,7 +46,10 @@ export function CheckoutFooter({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
-          className="fixed inset-x-0 bottom-0 z-[9999] border-t border-blue-100 bg-white/95 px-6 py-4 shadow-[0_-4px_20px_rgba(13,120,236,0.08)] backdrop-blur-md sm:px-8 lg:left-[45%]"
+          // `left-1/2` acompanha o painel azul, que no checkout ocupa metade da
+          // tela. Estava em 45%: os 5% de diferenca faziam o rodape passar por
+          // cima do gif da esquerda.
+          className="fixed inset-x-0 bottom-0 z-[9999] border-t border-blue-100 bg-white/95 px-6 py-4 shadow-[0_-4px_20px_rgba(13,120,236,0.08)] backdrop-blur-md sm:px-8 lg:left-1/2"
         >
           <div className="mx-auto flex max-w-2xl items-center gap-4">
             {/* Resumo de preço */}

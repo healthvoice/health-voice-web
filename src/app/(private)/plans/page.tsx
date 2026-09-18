@@ -361,9 +361,17 @@ export default function PlansPage() {
 
   // ── Helpers
   async function updateProfileFromForm(): Promise<boolean> {
+    /**
+     * Sem `email`: a API recusa a edição dele aqui.
+     *
+     * `PUT /user` responde 400 — "Email e vinculo com a clinica exigem um fluxo
+     * administrativo verificado" — quando o campo vem no corpo, mesmo sem
+     * mudança. A tela mandava sempre, então esta chamada SEMPRE falhava: o
+     * pagamento seguia (os dados vão também no corpo da cobrança), mas o
+     * endereço e o CEP que a pessoa digitava nunca eram salvos no perfil.
+     */
     const payload: Record<string, string> = {
       name: holder,
-      email: email.trim(),
       cpfCnpj: onlyDigits(cpf),
       mobilePhone: onlyDigits(phone),
     };
@@ -377,7 +385,6 @@ export default function PlansPage() {
       setProfile({
         ...profile,
         name: payload.name,
-        email: payload.email,
         cpfCnpj: payload.cpfCnpj ?? null,
         mobilePhone: payload.mobilePhone ?? null,
         postalCode: payload.postalCode ?? null,
