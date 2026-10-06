@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { chaveDaOpenRouter } from "@/lib/openrouter-key";
 import { requireApiUser } from "@/lib/require-api-user";
 
 // Helper para transcrever áudio usando um modelo rápido (Gemini Flash)
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     const { messages, model, files, systemPrompt } = await req.json();
-    const apiKey = process.env.OPEN_ROUTER_KEY;
+    const apiKey = chaveDaOpenRouter();
 
     if (!apiKey) {
       return NextResponse.json({ error: "API Key ausente" }, { status: 500 });

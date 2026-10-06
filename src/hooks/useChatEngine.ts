@@ -458,6 +458,27 @@ Sempre responda de forma clara, objetiva e em português do Brasil. Seja profiss
     } catch (error: any) {
       if (error.name !== "AbortError") {
         console.error("Erro Chat:", error);
+        /**
+         * A falha tem de aparecer NA CONVERSA, não só no console.
+         *
+         * Antes só havia o `console.error`: a bolha da resposta ficava vazia e
+         * a pessoa via um "..." para sempre, sem saber se estava pensando, se
+         * travou ou se o pedido chegou. Uma usuária passou semanas assim e
+         * reportou como "a aba Conversar não funciona" — sem nada que
+         * apontasse a causa, porque a tela não dizia nada.
+         */
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId
+              ? {
+                  ...m,
+                  content:
+                    "Não consegui responder agora. O assistente está indisponível — tente de novo em alguns instantes. Se continuar, avise o suporte.",
+                }
+              : m,
+          ),
+        );
+        toast.error("O assistente de IA está indisponível.");
       }
     } finally {
       setLoading(false);
