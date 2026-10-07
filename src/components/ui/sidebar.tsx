@@ -220,9 +220,7 @@ export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { clearSession, profile } = useSession();
-  const { isController } = useClinic();
-  const isDirection = profile?.role === "COMPANY_ADMIN" || isController;
-  const visiblePrimaryNav = isDirection ? [] : primaryNav;
+  const { isController, temClinica } = useClinic();
   const { modoApresentacao, alternar } = useApresentacao();
   const { selectedClient, selectedRecording } = useGeneralContext();
   const [appUrl, setAppUrl] = useState<string>("");
@@ -274,9 +272,9 @@ export function Sidebar() {
         <div className="flex shrink-0 items-center pt-4 pb-2">
           <button
             type="button"
-            onClick={() => handleNavClick(isDirection ? "/clinic" : "/")}
+            onClick={() => handleNavClick("/")}
             data-tracking-id="sidebar-logo-home"
-            data-tracking-destination={isDirection ? "/clinic" : "/"}
+            data-tracking-destination="/"
             className="focus:outline-none"
           >
             <Image
@@ -290,21 +288,19 @@ export function Sidebar() {
         </div>
 
         {/* CTA */}
-        {!isDirection && (
-          <div className="px-4 pb-1">
-            <AudioRecorder
-              forceType="CLIENT"
-              customLabel="Nova consulta"
-              buttonClassName="w-full justify-center flex flex-row gap-2 items-center justify-center py-1 gap-2 bg-white text-primary font-bold text-lg rounded-xl shadow-lg shadow-black/10 hover:bg-white/95 transition-all duration-200"
-            />
-          </div>
-        )}
+        <div className="px-4 pb-1">
+          <AudioRecorder
+            forceType="CLIENT"
+            customLabel="Nova consulta"
+            buttonClassName="w-full justify-center flex flex-row gap-2 items-center justify-center py-1 gap-2 bg-white text-primary font-bold text-lg rounded-xl shadow-lg shadow-black/10 hover:bg-white/95 transition-all duration-200"
+          />
+        </div>
 
         {/* Navigation */}
         <div className="scrollbar-hide flex flex-1 flex-col overflow-y-auto px-3 pt-4 pb-3">
           {/* Primary */}
           <nav className="flex flex-1 flex-col gap-0.5">
-            {visiblePrimaryNav.map((item) => {
+            {primaryNav.map((item) => {
               if (item.href === "/clients" && item.expandable) {
                 const active = isActive("/clients");
                 const showSubSteps = hasClientsSteps && clientsExpanded;
@@ -429,9 +425,9 @@ export function Sidebar() {
               );
             })}
 
-            {/* Área da Clínica: só para a direção. Ocultar é conveniência de
-                navegação — o acesso real é garantido pela API. */}
-            {isDirection && (
+            {/* Área da Clínica: item extra para quem administra uma clínica.
+                Não substitui as telas acima — o diretor também atende. */}
+            {isController && temClinica && (
               <NavItem
                 href="/clinic"
                 label="Clínica"
